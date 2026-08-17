@@ -1,0 +1,15 @@
+Voxline creates language models.
+Voxline learns from text.
+Language modeling predicts the next token.
+AI builds tools for coding.
+Training data shapes the model.
+Checkpoints store progress.
+The tokenizer turns text into tokens.
+Tokens become training examples.
+A model learns patterns in sequences.
+This is the path to a coding agent.
+Voxline AI Core grows step by step.
+The next token is the heart of language modeling.
+Text pipelines prepare raw data for learning.
+Validation checks whether the model generalizes.
+Good checkpoints help us rollback safely.
