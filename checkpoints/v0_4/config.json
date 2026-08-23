@@ -1,0 +1,22 @@
+{
+  "vocab_size": 1109,
+  "d_model": 128,
+  "num_layers": 4,
+  "num_heads": 4,
+  "d_ff": 512,
+  "max_seq_len": 128,
+  "dropout": 0.1,
+  "batch_size": 32,
+  "learning_rate": 0.0005,
+  "warmup_steps": 30,
+  "max_steps": 500,
+  "gradient_accumulation_steps": 1,
+  "max_grad_norm": 1.0,
+  "eval_steps": 50,
+  "eval_batch_size": 32,
+  "checkpoint_dir": "checkpoints/v0_4",
+  "save_steps": 50,
+  "num_epochs": 15,
+  "patience": 5,
+  "device": "cpu"
+}

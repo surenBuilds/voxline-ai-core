@@ -1,0 +1,14 @@
+{
+  "total_lines": 7312,
+  "total_words": 40468,
+  "total_chars": 297774,
+  "avg_words_per_line": 5.534463894967177,
+  "armenian_chars": 142691,
+  "english_chars": 113843,
+  "armenian_lines": 5064,
+  "english_lines": 2248,
+  "char_distribution": {
+    "armenian_pct": 47.919227333481096,
+    "english_pct": 38.23134323345893
+  }
+}

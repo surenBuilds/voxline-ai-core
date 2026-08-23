@@ -1,0 +1,98 @@
+Reinforcement learning trains agents through reward signals.
+Transfer learning reuses pre-trained models for new tasks.
+Generative adversarial networks create realistic synthetic data.
+Convolutional neural networks excel at image recognition tasks.
+Recurrent neural networks process sequential data like text.
+Long short-term memory networks handle long sequences effectively.
+Attention mechanisms allow models to focus on relevant parts.
+Self-supervised learning learns from unlabeled data automatically.
+Few-shot learning generalizes from very few training examples.
+Meta-learning enables models to learn how to learn quickly.
+Federated learning trains models across decentralized data sources.
+Graph neural networks operate on graph-structured data.
+Variational autoencoders learn compressed data representations.
+Denoising autoencoders reconstruct clean data from noisy inputs.
+Contrastive learning learns by comparing similar and different pairs.
+Multi-task learning trains a single model on multiple tasks.
+Neural architecture search automates model design automatically.
+Knowledge distillation transfers knowledge from large to small models.
+Zero-shot classification works without any task-specific training data.
+Prompt engineering improves language model outputs through design.
+Retrieval augmented generation combines retrieval with language generation.
+Chain of thought reasoning helps language models solve complex problems.
+Constitutional AI aligns models with human values and principles.
+Reward modeling trains language models to follow human preferences.
+Mixture of experts models route inputs to specialized sub-networks.
+Sparse attention reduces computational cost of transformer models.
+Rotary positional encodings improve transformer position understanding.
+Flash attention accelerates transformer training and inference speed.
+Quantization reduces model size while maintaining acceptable performance.
+Pruning removes unnecessary weights from neural networks.
+Tokenization splits text into manageable units for processing.
+Byte pair encoding compresses text by merging frequent character pairs.
+Word embeddings represent words as dense numerical vectors.
+Semantic similarity measures how related two pieces of text are.
+Named entity recognition identifies people, places, and organizations.
+Sentiment analysis determines emotional tone of text content.
+Machine translation converts text between different human languages.
+Text summarization condenses long documents into shorter versions.
+Question answering systems find answers from given text passages.
+Dialogue systems enable natural conversational interactions with AI.
+Code generation produces software code from natural language descriptions.
+Object detection identifies and locates objects within images.
+Semantic segmentation assigns class labels to every pixel.
+Image classification assigns categories to entire images.
+Pose estimation detects human body positions in images.
+Optical character recognition converts images of text to text.
+Speech recognition converts spoken words to written text.
+Text to speech synthesis converts written text to spoken audio.
+Voice cloning creates synthetic speech that sounds like a person.
+Audio classification categorizes sounds into predefined classes.
+Music generation creates original musical compositions automatically.
+Video understanding analyzes and interprets video content.
+3D reconstruction creates three dimensional models from images.
+Robotics combines perception, planning, and action for autonomous systems.
+Autonomous driving uses AI to navigate vehicles without humans.
+Drone technology enables autonomous aerial vehicles for various tasks.
+Smart homes use IoT devices for automated household management.
+Healthcare AI assists doctors in diagnosing diseases more accurately.
+Drug discovery uses AI to identify potential new medicines.
+Medical imaging analysis helps detect abnormalities in scans.
+Genomics uses AI to analyze DNA sequences and mutations.
+Climate modeling uses AI to predict weather and climate patterns.
+Financial forecasting uses AI to predict market movements.
+Fraud detection identifies suspicious transactions in banking systems.
+Risk assessment evaluates potential risks using predictive models.
+Customer segmentation groups customers based on behavior patterns.
+Recommendation systems suggest relevant items to users.
+Search ranking orders results by relevance to user queries.
+Anomaly detection finds unusual patterns in data streams.
+Predictive maintenance forecasts equipment failures before they happen.
+Supply chain optimization improves logistics and inventory management.
+Energy grid management optimizes power distribution using AI.
+Agricultural monitoring uses drones and AI for crop management.
+Wildlife conservation uses AI to track and protect animals.
+Natural language understanding enables machines to comprehend human language.
+Coreference resolution links pronouns to the correct entities.
+Relation extraction identifies relationships between entities in text.
+Event extraction identifies events and their participants in text.
+Topic modeling discovers hidden themes in document collections.
+Information extraction pulls structured data from unstructured text.
+Document classification assigns categories to documents automatically.
+Paraphrase detection identifies sentences with the same meaning.
+Stance detection determines if text supports or opposes a claim.
+Hate speech detection identifies toxic or harmful language.
+Fact checking verifies claims against trusted knowledge sources.
+Bias detection identifies unfair prejudice in AI systems.
+Explainability methods help humans understand AI decisions.
+Interpretable models provide clear reasoning for their predictions.
+Fairness metrics measure whether AI treats all groups equally.
+Differential privacy protects individual data in aggregate analysis.
+Homomorphic encryption enables computation on encrypted data.
+Secure multi party computation distributes computation across parties.
+Blockchain technology provides decentralized and tamper proof records.
+Quantum computing leverages quantum mechanics for computation.
+Quantum machine learning combines quantum computing with AI.
+Neuromorphic computing mimics the brain architecture for processing.
+Edge AI runs machine learning models on local devices.
+Cloud computing provides scalable resources for AI workloads.

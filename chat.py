@@ -8,8 +8,11 @@ Usage:
 """
 
 import argparse
+import sys
 import torch
 from pathlib import Path
+
+sys.stdout.reconfigure(encoding='utf-8')
 
 from src.tokenizer.bpe import BPETokenizer
 from src.model.transformer import VoxlineTransformer
@@ -61,7 +64,12 @@ def main():
     # Infer paths if not provided
     if not args.tokenizer:
         checkpoint_dir = Path(args.model).parent
-        args.tokenizer = checkpoint_dir / "voxline_tokenizer.json"
+        for name in ["tokenizer.json", "voxline_tokenizer.json"]:
+            if (checkpoint_dir / name).exists():
+                args.tokenizer = checkpoint_dir / name
+                break
+        else:
+            args.tokenizer = checkpoint_dir / "tokenizer.json"
 
     if not args.memory:
         args.memory = "memory/chat_memory.db"

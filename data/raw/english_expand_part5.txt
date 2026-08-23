@@ -1,0 +1,124 @@
+Bayesian networks model probabilistic relationships between variables.
+Hidden Markov models capture temporal patterns in sequential data.
+Gaussian processes model functions with uncertainty estimates.
+Support vector regression predicts continuous outcome variables.
+Random forests aggregate multiple decision trees for predictions.
+Gradient boosting machines build trees to minimize loss.
+XGBoost implements scalable gradient boosting for large datasets.
+LightGBM optimizes gradient boosting for speed and memory.
+CatBoost handles categorical features natively in boosting.
+Elastic net regularization combines L1 and L2 penalties.
+Ridge regression adds L2 penalty to prevent overfitting.
+Lasso regression adds L1 penalty for feature selection.
+Bayesian linear regression incorporates prior knowledge into models.
+Polynomial regression models non-linear relationships between variables.
+Locally weighted regression fits local models to subsets.
+Nearest neighbor classification assigns labels based on proximity.
+Gaussian naive Bayes assumes feature independence for classification.
+Bernoulli naive Bayes handles binary feature classification.
+Multinomial naive Bayes classifies text using word frequencies.
+Passive aggressive algorithms update models for online learning.
+Perceptron learning algorithm trains single layer neural networks.
+Multi layer perceptrons add hidden layers for complex learning.
+Radial basis function networks use distance-based activation functions.
+Self-organizing maps cluster data into topological structures.
+Learning vector quantization classifies using prototype vectors.
+Fuzzy logic handles uncertain and imprecise reasoning.
+Genetic algorithms optimize solutions through evolution-inspired processes.
+Ant colony optimization finds paths using swarm intelligence.
+Particle swarm optimization explores solutions through particle movement.
+Simulated annealing optimizes by gradually reducing search randomness.
+Tabu search avoids revisiting previously explored solutions.
+Constraint satisfaction problems define valid solution boundaries.
+Linear programming optimizes linear objective functions with constraints.
+Integer programming restricts variables to integer values.
+Mixed integer programming combines continuous and integer variables.
+Quadratic programming optimizes quadratic objective functions.
+Convex optimization minimizes convex functions over convex sets.
+Gradient descent iteratively moves toward function minimum.
+Newton method uses second derivatives for faster convergence.
+Quasi-Newton methods approximate second derivatives for optimization.
+Conjugate gradient method minimizes quadratic functions efficiently.
+BFGS algorithm approximates Hessian matrix for optimization.
+L-BFGS limits memory usage in BFGS approximation.
+Coordinate descent optimizes one variable at a time.
+Expectation maximization finds maximum likelihood parameter estimates.
+Variational inference approximates complex posterior distributions.
+Markov chain Monte Carlo samples from probability distributions.
+Gibbs sampling generates samples from joint distributions iteratively.
+Metropolis Hastings algorithm accepts or rejects proposed samples.
+Importance sampling estimates expectations using weighted samples.
+Resampling methods generate new datasets from existing data.
+Bootstrap aggregation reduces variance through repeated sampling.
+Cross-validation partitions data for reliable performance estimation.
+Nested cross-validation prevents information leakage in model selection.
+Receiver operating characteristic curves evaluate binary classifiers.
+Area under curve summarizes classifier performance across thresholds.
+Precision measures accuracy of positive predictions made.
+Recall measures completeness of positive predictions made.
+F1 score balances precision and recall in single metric.
+Confusion matrix summarizes classification prediction outcomes.
+Mean absolute error measures average prediction error magnitude.
+Root mean squared error penalizes large prediction errors.
+R-squared measures proportion of variance explained by model.
+Adjusted R-squared accounts for number of predictors used.
+Akaike information criterion balances model fit and complexity.
+Bayesian information criterion penalizes complex models more strongly.
+Deviance information criterion compares Bayesian model fit.
+Cross-entropy measures difference between predicted and true distributions.
+Kullback-Leibler divergence quantifies distribution difference directionally.
+Jensen-Shannon divergence provides symmetric distribution comparison measure.
+Wasserstein distance measures distribution difference geometrically.
+Total variation distance measures maximum distribution difference.
+Earth mover's distance computes minimal transformation cost between distributions.
+Perplexity evaluates language model prediction uncertainty.
+BLEU score measures machine translation quality against references.
+ROUGE score evaluates text summarization quality against references.
+METEOR score improves upon BLEU for translation evaluation.
+BERTScore computes semantic similarity using contextual embeddings.
+Human evaluation remains gold standard for generation quality.
+Intrinsic evaluation measures model internal representation quality.
+Extrinsic evaluation measures model performance on downstream tasks.
+Ablation studies remove components to measure individual contributions.
+Sensitivity analysis examines how outputs change with inputs.
+Statistical significance testing validates observed result differences.
+Multiple comparison testing controls false discovery rate.
+Bonferroni correction adjusts significance thresholds for multiple tests.
+Tukey honestly significant difference test compares group means.
+Analysis of variance tests differences between multiple group means.
+Chi-square test examines categorical variable associations.
+Mann-Whitney U test compares two independent group distributions.
+Wilcoxon signed-rank test compares paired distribution medians.
+Kruskal-Wallis test compares multiple independent group distributions.
+Friedman test compares repeated measures across multiple conditions.
+Cronbach's alpha measures internal consistency of test items.
+Intraclass correlation agreement between multiple raters.
+Cohen's kappa measures inter-rater agreement beyond chance.
+Cohen's d quantifies effect size between two groups.
+Glass's delta measures effect size using control group standard deviation.
+Hedges' g provides bias-corrected effect size measure.
+Odds ratio quantifies association strength between binary variables.
+Relative risk compares event probabilities between two groups.
+Hazard ratio compares event rates between two groups.
+Kaplan-Meier estimator visualizes survival probability over time.
+Cox proportional hazards models covariate effects on survival.
+Logistic regression models binary outcome probabilities.
+Multinomial logistic regression handles multiple outcome categories.
+Ordinal logistic regression models ordered outcome categories.
+Poisson regression models count data occurrence rates.
+Negative binomial regression handles overdispersed count data.
+Tobit regression models censored outcome variables.
+Instrumental variables estimation addresses endogeneity in regression.
+Difference-in-differences estimates causal effects from policy changes.
+Regression discontinuity exploits cutoff-based treatment assignment.
+Synthetic control method constructs comparison groups from weighted donors.
+Propensity score matching creates balanced treatment and control groups.
+Propensity score weighting adjusts for selection bias in observations.
+Instrumental variable regression uses instruments to address confounding.
+Granger causality tests whether one time series predicts another.
+Vector autoregression models interdependencies between time series.
+Cointegration tests identify long-run equilibrium relationships.
+Error correction models adjust toward long-run equilibrium.
+Augmented Dickey-Fuller test checks for unit root stationarity.
+Phillips-Perron test non-parametrically tests for unit roots.
+Kwiatkowski-Phillips-Schmidt-Shin test tests for stationarity.

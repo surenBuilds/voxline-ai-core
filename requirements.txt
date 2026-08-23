@@ -6,3 +6,18 @@ accelerate>=0.30.0
 tqdm>=4.66.0
 numpy>=1.26.0
 pandas>=2.2.0
+pyyaml>=6.0.0
+
+# Configuration
+python-dotenv>=1.0.0
+
+# Logging
+loguru>=0.7.0
+
+# Development
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+
+# Local API
+fastapi>=0.115.0
+uvicorn>=0.30.0

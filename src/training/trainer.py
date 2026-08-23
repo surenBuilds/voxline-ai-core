@@ -47,6 +47,10 @@ class TrainingConfig:
     checkpoint_dir: str = "checkpoints"
     save_steps: int = 500
 
+    # Early stopping
+    num_epochs: int = 10
+    patience: int = 3
+
     # Device
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -87,11 +91,19 @@ class LanguageModelDataset(Dataset):
         self.max_seq_len = max_seq_len
         self.pad_id = pad_id
 
-        # Tokenize all texts and concatenate
+        # Get BOS/EOS token IDs from tokenizer
+        self.bos_id = tokenizer.token_to_id("<BOS>")
+        self.eos_id = tokenizer.token_to_id("<EOS>")
+
+        # Tokenize all texts and concatenate, with BOS/EOS per line
         all_tokens = []
         for text in texts:
             tokens = tokenizer.encode(text)
+            if self.bos_id is not None:
+                all_tokens.append(self.bos_id)
             all_tokens.extend(tokens)
+            if self.eos_id is not None:
+                all_tokens.append(self.eos_id)
 
         # Create examples by sliding window
         self.examples = []
@@ -157,6 +169,15 @@ class Trainer:
             lr=config.learning_rate,
         )
 
+        # LR scheduler: linear warmup + cosine decay
+        def lr_lambda(step):
+            if step < config.warmup_steps:
+                return float(step) / float(max(1, config.warmup_steps))
+            progress = float(step - config.warmup_steps) / float(max(1, config.max_steps - config.warmup_steps))
+            return max(0.1, 0.5 * (1.0 + math.cos(math.pi * progress)))
+
+        self.scheduler = torch.optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda)
+
         # Loss function
         self.criterion = nn.CrossEntropyLoss(ignore_index=-100)
 
@@ -193,6 +214,7 @@ class Trainer:
             loss.backward()
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.max_grad_norm)
             self.optimizer.step()
+            self.scheduler.step()
             self.optimizer.zero_grad()
 
             total_loss += loss.item()
@@ -287,16 +309,25 @@ class Trainer:
         self,
         train_loader: DataLoader,
         val_loader: DataLoader,
-        num_epochs: int,
+        num_epochs: int = None,
+        patience: int = None,
     ):
         """
-        Full training loop.
+        Full training loop with early stopping.
 
         Args:
             train_loader: Training data loader
             val_loader: Validation data loader
-            num_epochs: Number of epochs to train
+            num_epochs: Number of epochs (defaults to config)
+            patience: Early stopping patience (defaults to config)
         """
+        if num_epochs is None:
+            num_epochs = self.config.num_epochs
+        if patience is None:
+            patience = self.config.patience
+
+        epochs_without_improvement = 0
+
         for epoch in range(num_epochs):
             print(f"\n{'='*60}")
             print(f"Epoch {epoch + 1}/{num_epochs}")
@@ -316,13 +347,15 @@ class Trainer:
                 "val_loss": val_loss,
                 "perplexity": perplexity,
                 "global_step": self.global_step,
+                "lr": self.scheduler.get_last_lr()[0],
             }
             self.training_history.append(metrics)
 
             print(f"\nEpoch {epoch + 1} Summary:")
-            print(f"  Train Loss: {train_loss:.6f}")
-            print(f"  Val Loss: {val_loss:.6f}")
-            print(f"  Perplexity: {perplexity:.4f}")
+            print(f"  Train Loss:  {train_loss:.6f}")
+            print(f"  Val Loss:    {val_loss:.6f}")
+            print(f"  Perplexity:  {perplexity:.4f}")
+            print(f"  Learning Rate: {self.scheduler.get_last_lr()[0]:.6f}")
 
             # Save checkpoint
             checkpoint_path = (
@@ -333,5 +366,14 @@ class Trainer:
             # Save best model
             if val_loss < self.best_val_loss:
                 self.best_val_loss = val_loss
+                epochs_without_improvement = 0
                 best_path = Path(self.config.checkpoint_dir) / "best_model.pt"
                 self.save_checkpoint(str(best_path), is_best=True)
+            else:
+                epochs_without_improvement += 1
+                print(f"  No improvement for {epochs_without_improvement} epoch(s)")
+
+            # Early stopping
+            if epochs_without_improvement >= patience:
+                print(f"\nEarly stopping after {patience} epochs without improvement")
+                break

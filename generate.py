@@ -8,8 +8,11 @@ Usage:
 """
 
 import argparse
+import sys
 import torch
 from pathlib import Path
+
+sys.stdout.reconfigure(encoding='utf-8')
 
 from src.tokenizer.bpe import BPETokenizer
 from src.model.transformer import VoxlineTransformer
@@ -67,7 +70,12 @@ def main():
     # Infer tokenizer path if not provided
     if not args.tokenizer:
         checkpoint_dir = Path(args.model).parent
-        args.tokenizer = checkpoint_dir / "voxline_tokenizer.json"
+        for name in ["tokenizer.json", "voxline_tokenizer.json"]:
+            if (checkpoint_dir / name).exists():
+                args.tokenizer = checkpoint_dir / name
+                break
+        else:
+            args.tokenizer = checkpoint_dir / "tokenizer.json"
 
     print("=" * 70)
     print("VOXLINE AI CORE - TEXT GENERATION")
@@ -97,7 +105,11 @@ def main():
 
     generated = generator.generate(args.prompt, config, return_text=True)
 
-    print(generated)
+    # Clean special tokens
+    for tok in ["<EOS>", "<BOS>", "<PAD>", "<UNK>", "<CLS>", "<SEP>"]:
+        generated = generated.replace(tok, "")
+
+    print(generated.strip())
     print("-" * 70)
 
 

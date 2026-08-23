@@ -75,10 +75,10 @@ class ConversationalAI:
 
         # Build prompt with context
         if include_memory:
-            context = self.conversation_memory.get_context(num_messages=5)
-            prompt = f"{self.system_instruction}\n\nConversation:\n{context}\n\nAssistant:"
+            context = self.conversation_memory.get_context(num_messages=3)
+            prompt = f"User: {user_message}\nAssistant:"
         else:
-            prompt = f"{self.system_instruction}\n\nUser: {user_message}\n\nAssistant:"
+            prompt = f"User: {user_message}\nAssistant:"
 
         # Generate response
         config = GenerationConfig(
@@ -86,6 +86,8 @@ class ConversationalAI:
             temperature=temperature,
             top_p=top_p,
             do_sample=True,
+            eos_token_id=self.tokenizer.vocab.get("<EOS>"),
+            pad_token_id=self.tokenizer.vocab.get("<PAD>"),
         )
 
         response = self.generator.generate(prompt, config, return_text=True)
@@ -173,11 +175,23 @@ class ConversationalAI:
         if response.startswith(prompt):
             response = response[len(prompt) :].strip()
 
+        # Also try to find "Assistant:" marker and take text after last one
+        markers = ["Assistant:", "ASSISTANT:", "assistant:"]
+        for marker in markers:
+            idx = response.rfind(marker)
+            if idx != -1:
+                response = response[idx + len(marker):].strip()
+
         # Remove common artifacts
         response = response.split("\nUser:")[0].strip()
+        response = response.split("\nUSER:")[0].strip()
         response = response.split("\n\n")[0].strip()
 
-        return response
+        # Clean special tokens
+        for token in ["<EOS>", "<BOS>", "<PAD>", "<UNK>", "<CLS>", "<SEP>"]:
+            response = response.replace(token, "")
+
+        return response.strip()
 
     def set_system_instruction(self, instruction: str):
         """Set system instruction."""

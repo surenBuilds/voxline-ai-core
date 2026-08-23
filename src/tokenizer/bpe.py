@@ -182,23 +182,24 @@ class BPETokenizer:
             chars = list(word)
             word_tokens = chars + ["</w>"]
 
-            # Apply BPE merges
-            for pair in self.merges_list:
-                new_token = self.bpe_merges.get(pair)
-                if new_token:
-                    i = 0
-                    new_word_tokens = []
-                    while i < len(word_tokens):
-                        if (
-                            i < len(word_tokens) - 1
-                            and (word_tokens[i], word_tokens[i + 1]) == pair
-                        ):
-                            new_word_tokens.append(new_token)
+            # Apply BPE merges using lookup dict for speed
+            changed = True
+            while changed:
+                changed = False
+                i = 0
+                new_word_tokens = []
+                while i < len(word_tokens):
+                    if i < len(word_tokens) - 1:
+                        pair = (word_tokens[i], word_tokens[i + 1])
+                        merged = self.bpe_merges.get(pair)
+                        if merged is not None:
+                            new_word_tokens.append(merged)
                             i += 2
-                        else:
-                            new_word_tokens.append(word_tokens[i])
-                            i += 1
-                    word_tokens = new_word_tokens
+                            changed = True
+                            continue
+                    new_word_tokens.append(word_tokens[i])
+                    i += 1
+                word_tokens = new_word_tokens
 
             # Convert tokens to IDs
             for token in word_tokens:
@@ -218,7 +219,12 @@ class BPETokenizer:
         Returns:
             Decoded text
         """
-        tokens = [self.inv_vocab.get(tid, "<UNK>") for tid in token_ids]
+        special_ids = {self.vocab.get(t) for t in self.special_tokens}
+        tokens = []
+        for tid in token_ids:
+            if tid in special_ids:
+                continue
+            tokens.append(self.inv_vocab.get(tid, ""))
         text = "".join(tokens)
         text = text.replace("</w>", " ")
         return text.strip()
@@ -262,7 +268,7 @@ class BPETokenizer:
         self.vocab_size = payload.get("vocab_size", self.vocab_size)
         self.special_tokens = payload.get("special_tokens", self.special_tokens)
         self.vocab = payload.get("vocab", {})
-        self.merges_list = payload.get("merges", [])
+        self.merges_list = [tuple(m) if isinstance(m, list) else m for m in payload.get("merges", [])]
 
         # Reconstruct inverse vocab
         self.inv_vocab = {v: k for k, v in self.vocab.items()}

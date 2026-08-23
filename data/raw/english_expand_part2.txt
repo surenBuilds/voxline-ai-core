@@ -1,0 +1,82 @@
+GPU acceleration dramatically speeds up neural network training.
+Distributed training splits model training across multiple devices.
+Model parallelism distributes a single model across devices.
+Data parallelism replicates models and splits training data.
+Pipeline parallelism splits model layers across different devices.
+Mixed precision training uses lower precision for faster training.
+Gradient accumulation simulates larger batch sizes in training.
+Learning rate scheduling adjusts learning rate during training.
+Early stopping prevents overtraining by monitoring validation performance.
+Cross validation evaluates model performance across data splits.
+Hyperparameter tuning optimizes model configuration settings.
+Regularization techniques prevent overfitting in machine learning models.
+Dropout randomly disables neurons during training for regularization.
+Batch normalization stabilizes and accelerates neural network training.
+Residual connections enable training of very deep networks.
+Skip connections help gradient flow in deep neural networks.
+Layer normalization normalizes inputs within each neural network layer.
+Weight initialization strategies set initial parameter values carefully.
+He initialization sets weights based on layer fan in.
+Xavier initialization balances variance across layers for training.
+Activation functions introduce non linearity into neural networks.
+ReLU activation is the most commonly used activation function.
+GELU activation provides smooth approximation to ReLU function.
+Swish activation is a self gated smooth activation function.
+Softmax converts logits to probability distributions for classification.
+Sigmoid function outputs values between zero and one.
+Loss functions measure how far predictions are from targets.
+Cross entropy loss is standard for classification tasks.
+Mean squared error measures average squared prediction differences.
+Optimization algorithms update model parameters to minimize loss.
+Stochastic gradient descent updates parameters using random samples.
+Adam optimizer combines momentum and adaptive learning rates.
+AdamW optimizer adds weight decay to Adam for regularization.
+SGD with momentum accelerates convergence using velocity estimates.
+Learning rate warmup gradually increases learning rate initially.
+Cosine annealing schedule reduces learning rate following cosine curve.
+Data augmentation increases training data diversity artificially.
+Image augmentation applies random transformations to training images.
+Text augmentation generates variations of existing text samples.
+Ensemble methods combine multiple models for better predictions.
+Bagging trains multiple models on random data subsets.
+Boosting trains models sequentially to correct previous errors.
+Random forest combines many decision trees for robust predictions.
+Gradient boosting builds trees to reduce residual errors.
+Support vector machines find optimal decision boundaries between classes.
+Kernel methods transform data into higher dimensional spaces.
+Principal component analysis reduces data dimensionality while preserving variance.
+K-means clustering groups data into k distinct clusters.
+DBSCAN finds clusters of arbitrary shape in spatial data.
+Naive Bayes classifier uses Bayes theorem with independence assumption.
+Logistic regression models probability of binary outcomes.
+Linear regression fits a line to continuous outcome data.
+Decision trees split data based on feature thresholds recursively.
+Dynamic programming solves problems by breaking into subproblems.
+Greedy algorithms make locally optimal choices at each step.
+Divide and conquer splits problems into smaller subproblems.
+Monte Carlo methods use randomness to solve computation problems.
+Bayesian inference updates beliefs given new evidence.
+Hypothesis testing determines statistical significance of observed results.
+Confidence intervals estimate range of unknown population parameters.
+Regression analysis models relationships between variables.
+Correlation measures strength of linear association between variables.
+Time series analysis extracts patterns from temporal data.
+Reinforcement learning optimizes sequential decision making.
+Q learning learns optimal action values from experience.
+Deep Q networks combine deep learning with Q learning.
+Actor critic methods combine policy and value based learning.
+Natural language generation produces human readable text outputs.
+Language modeling predicts next tokens in a sequence.
+Masked language modeling predicts hidden tokens in input.
+Sequence to sequence models map input sequences to outputs.
+Beam search finds high probability output sequences.
+Language model fine tuning adapts pre-trained models to tasks.
+Instruction following trains models to execute user commands.
+Tool use enables language models to access external resources.
+Knowledge graphs connect related concepts in semantic networks.
+Information retrieval finds relevant documents for user queries.
+Vector search finds similar items using dense embeddings.
+Time series forecasting predicts future values from historical data.
+Feature engineering creates new variables from existing data.
+Normalization scales features to comparable ranges.
+Stratified sampling preserves class proportions in data splits.
