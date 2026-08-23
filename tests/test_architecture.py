@@ -37,13 +37,13 @@ class TestCanonicalImports(unittest.TestCase):
 
     def test_import_providers(self):
         from src.providers import (
-            AIProvider, GenerationConfig, ProviderHealth,
-            ProviderStatus, LocalVoxlineProvider, LocalTransformersProvider,
+            AIProvider, GenerationConfig, ProviderHealth, ModelInfo,
+            ProviderStatus, LocalVoxlineProvider, QwenProvider,
             ProviderFactory,
         )
         self.assertIsNotNone(AIProvider)
         self.assertIsNotNone(LocalVoxlineProvider)
-        self.assertIsNotNone(LocalTransformersProvider)
+        self.assertIsNotNone(QwenProvider)
         self.assertIsNotNone(ProviderFactory)
 
     def test_import_memory(self):

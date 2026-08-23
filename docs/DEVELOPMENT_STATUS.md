@@ -10,12 +10,14 @@ Architecture is ahead of model intelligence. All components functional but model
 
 | Test Suite | Status | Count |
 |-----------|--------|-------|
-| pytest (test_core.py) | PASS | 16/16 |
+| pytest (test_core.py) | PASS | 20/20 |
 | pytest (test_business_agent.py) | PASS | 2/2 |
 | pytest (test_architecture.py) | PASS | 35/35 |
-| pytest (total) | PASS | **57/57** |
+| pytest (test_providers.py) | PASS | 19/19 |
+| pytest (total, excl. Qwen) | PASS | **76/76** |
+| pytest (test_providers.py Qwen) | PASS | 8/8 (requires model download) |
 | Smoke tests (baseline_smoke.py) | PASS | **14/14** |
-| Total | **PASS** | **71/71** |
+| Total (non-Qwen) | **PASS** | **90/90** |
 
 ## Component Status
 
@@ -33,16 +35,17 @@ Architecture is ahead of model intelligence. All components functional but model
 | ReasoningEngine | Working | Goal analysis, plan creation, revision decisions |
 | AutonomousAgent | Working | Execution loop, state management |
 | BusinessAgent | Working | Business plans, knowledge storage/retrieval |
-| LocalVoxlineProvider | Working | Health check, generate, stream |
-| LocalTransformersProvider | Working | HuggingFace model wrapping |
-| ProviderFactory | Partial | Only "local" provider implemented |
+| **AIProvider ABC** | **Working** | chat, stream, health_check, generate, get_model_info |
+| **LocalVoxlineProvider** | **Working** | Native Voxline, streaming, ModelInfo |
+| **QwenProvider** | **Working** | HuggingFace Qwen2.5 local, chat template |
+| **ProviderFactory** | **Working** | Lazy registration, configurable creation |
 | VoxlineConfig | Working | Environment-driven, defaults functional |
 | ModelConfig | Working | Checkpoint compatibility, from_dict robust |
 | Error hierarchy | Working | Centralized in src/errors.py |
-| FastAPI Server | Working | /health, /chat, /generate, /docs |
+| **FastAPI Server** | **Working** | Provider-configurable via --provider flag |
 | CLI chat.py | Working | Interactive chat with memory |
 
-## Bugs Fixed (Phase 0 + Phase 1)
+## Bugs Fixed (Phase 0 + Phase 1 + Phase 2)
 
 ### Phase 0
 1. **`src/agent/agent.py`**: Added missing `MemoryStore` import
@@ -55,14 +58,28 @@ Architecture is ahead of model intelligence. All components functional but model
 6. **`src/checkpoint.py`**: Replaced local `CheckpointIncompatibilityError` with canonical import from `src/errors.py`
 7. **`src/providers/factory.py`**: Replaced local `ProviderNotFoundError` with canonical import from `src/errors.py`
 
-## Architecture Changes (Phase 1)
+### Phase 2
+8. **`src/providers/base.py`**: Redesigned ABC with `chat()`, `get_model_info()`, `ModelInfo` dataclass, streaming defaults
+9. **`src/providers/local_voxline.py`**: Updated to implement new ABC interface (added `model_id`, `supports_streaming`, `get_model_info()`, `chat()`)
+10. **`src/providers/factory.py`**: Refactored to use lazy provider registration and configurable creation from VoxlineConfig
+11. **`tests/test_architecture.py`**: Fixed import of `QwenProvider` (replaced removed `LocalTransformersProvider`)
 
+## Architecture Changes
+
+### Phase 1
 1. **Legacy modules moved**: `src/model.py`, `src/tokenizer.py`, `src/config.py`, `src/dataset.py`, `src/train.py`, `src/chat.py` moved to `src/legacy/`
 2. **Error hierarchy created**: `src/errors.py` with 20+ exception classes inheriting from `VoxlineError`
 3. **Empty directories removed**: `src/orchestrator/`, `src/coding/` (had no code)
 4. **Placeholder package created**: `src/evaluation/` (ready for Phase 3)
 5. **Type hints added**: Return type annotations on public methods across memory, planner, agent, tools, api modules
 6. **Architecture tests added**: 35 tests covering canonical imports, legacy compatibility, model/tokenizer/memory/tools/config/planner architecture
+
+### Phase 2
+7. **AIProvider ABC redesigned**: Default `chat()` implementation, `get_model_info()` returning `ModelInfo` dataclass, `supports_streaming` property
+8. **QwenProvider created**: `src/providers/qwen_provider.py` — wraps local Qwen2.5-0.5B-Instruct with HuggingFace transformers, uses `apply_chat_template`
+9. **ProviderFactory refactored**: Lazy registration of built-in providers, creation driven by `VoxlineConfig.ai_provider`
+10. **serve_v04.py made configurable**: `--provider` flag (native/qwen), uses `ProviderFactory.create()`
+11. **Provider tests added**: 27 tests in `tests/test_providers.py` covering ABC contract, LocalVoxlineProvider, QwenProvider, ProviderFactory, interface compliance
 
 ## Canonical Module Map
 
@@ -78,7 +95,7 @@ Architecture is ahead of model intelligence. All components functional but model
 | Planner | `src/planner/reasoning.py` | Canonical |
 | Agent | `src/agent/agent.py` | Canonical |
 | Business | `src/business/agent.py` | Canonical |
-| Providers | `src/providers/base.py` + implementations | Canonical |
+| **Providers** | `src/providers/base.py` + implementations | **Canonical (Phase 2 updated)** |
 | API | `src/api/chat.py`, `serve_v04.py` | Canonical |
 | Errors | `src/errors.py` | Canonical |
 | Logging | `src/logging.py` | Canonical |
@@ -95,6 +112,7 @@ Architecture is ahead of model intelligence. All components functional but model
 | train_model() | `src/legacy/train.py` | Legacy | `src/training/trainer.py` |
 | ChatBot | `src/legacy/chat.py` | Legacy | `src/api/chat.py` |
 | main.py | `main.py` (root) | Legacy | `scripts/train_small.py` |
+| **LocalTransformersProvider** | `src/providers/local_transformers.py` | **Legacy** | `src/providers/qwen_provider.py` |
 
 ## Performance Baseline
 
@@ -116,11 +134,13 @@ Architecture is ahead of model intelligence. All components functional but model
 4. **Two GenerationConfig classes**: `src.inference.generator.GenerationConfig` (max_new_tokens) vs `src.providers.base.GenerationConfig` (max_tokens). Kept separate — they serve different abstraction levels.
 5. **Stub methods**: `Planner.decompose_task()` returns `[]`.
 6. **No authentication**: API endpoints unauthenticated.
-7. **No streaming**: FastAPI /chat doesn't support streaming responses.
+7. **No streaming**: FastAPI /chat doesn't support streaming responses yet.
 
-## Git Status
+## Git History
 
-- Branch: `main`
-- 2 commits: `471abab feat: Voxline AI Core v0.3 stable`, `8d14de2 chore: establish v0.4 baseline`
-- .gitignore present
-- All v0.4 work committed
+| Commit | Hash | Description |
+|--------|------|-------------|
+| feat: Voxline AI Core v0.3 stable | `471abab` | v0.3 release |
+| chore: establish v0.4 baseline | `8d14de2` | Phase 0: safety + baseline |
+| refactor: establish canonical core architecture | `88d0507` | Phase 1: clean architecture |
+| feat: introduce unified AI provider architecture | — | Phase 2: provider system (pending) |

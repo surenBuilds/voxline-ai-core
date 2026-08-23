@@ -48,7 +48,7 @@ src/
   tokenizer/      BPE tokenizer (custom, 1109 vocab)
   training/       TrainingConfig, Trainer, Dataset, collate
   inference/      TextGenerator, GenerationConfig
-  providers/      AIProvider ABC, LocalVoxlineProvider, LocalTransformersProvider, ProviderFactory
+  providers/      AIProvider ABC, ModelInfo, LocalVoxlineProvider, QwenProvider, ProviderFactory
   attention/      ScaledDotProductAttention, MultiHeadAttention, CausalSelfAttention
   config/         VoxlineConfig (env-driven), ModelConfig (architecture), ModelType enum
   memory/         MemoryStore (SQLite), ConversationMemory
@@ -90,10 +90,11 @@ src/
 
 | Component | Location | Purpose |
 |-----------|----------|---------|
-| AIProvider (ABC) | `src/providers/base.py` | Common interface: generate, stream, health_check |
-| LocalVoxlineProvider | `src/providers/local_voxline.py` | Wraps native VoxlineTransformer |
-| LocalTransformersProvider | `src/providers/local_transformers.py` | Wraps HuggingFace models (e.g. Qwen2.5-0.5B) |
-| ProviderFactory | `src/providers/factory.py` | Creates providers from VoxlineConfig |
+| AIProvider (ABC) | `src/providers/base.py` | Common interface: chat, generate, stream, health_check, get_model_info |
+| **ModelInfo** | `src/providers/base.py` | Dataclass: model_id, provider_id, parameters, vocab_size, supports_streaming |
+| LocalVoxlineProvider | `src/providers/local_voxline.py` | Wraps native VoxlineTransformer, streaming support |
+| **QwenProvider** | `src/providers/qwen_provider.py` | Wraps local Qwen2.5 via HuggingFace transformers, chat template |
+| ProviderFactory | `src/providers/factory.py` | Creates providers from VoxlineConfig, lazy registration |
 
 ### Configuration
 
@@ -208,3 +209,27 @@ Root-level legacy files (`main.py`, `train.py`, `generate.py`, `chat.py`) are v0
 1. **Two GenerationConfig classes**: `src.inference.generator.GenerationConfig` (max_new_tokens) vs `src.providers.base.GenerationConfig` (max_tokens). Not merged because they serve different purposes (model-level vs provider-level).
 2. **Planner.decompose_task()** is a stub returning `[]`.
 3. **Model quality**: Current model (936K params) produces incoherent outputs. Perplexity ~135.8.
+4. **QwenProvider**: Does not support streaming (HuggingFace generate API is synchronous). Streaming support requires custom generation loop.
+
+## Provider Interface (Phase 2)
+
+All providers implement the `AIProvider` ABC defined in `src/providers/base.py`:
+
+```python
+class AIProvider(ABC):
+    @property
+    def provider_id(self) -> str: ...       # e.g. "local_voxline", "qwen"
+    @property
+    def model_id(self) -> str: ...          # e.g. "voxline_0.4.0", "Qwen2.5-0.5B-Instruct"
+    @property
+    def supports_streaming(self) -> bool: ...
+
+    def get_model_info(self) -> ModelInfo: ...   # returns ModelInfo dataclass
+    async def health_check(self) -> ProviderHealth: ...
+    async def generate(self, prompt, config) -> str: ...   # default: calls stream()
+    async def chat(self, messages, config) -> str: ...     # default: calls generate()
+    async def stream(self, prompt, config) -> AsyncIterator[str]: ...  # default: raises NotImplementedError
+```
+
+Provider selection is driven by `VoxlineConfig.ai_provider` ("native" or "qwen").
+The server accepts `--provider` flag: `python serve_v04.py --provider qwen`.
