@@ -9,14 +9,10 @@ from typing import Optional
 
 from src.config.settings import VoxlineConfig
 from src.providers.base import AIProvider
+from src.errors import ProviderNotFoundError
 
 
 logger = logging.getLogger(__name__)
-
-
-class ProviderNotFoundError(Exception):
-    """Raised when specified provider cannot be found or initialized."""
-    pass
 
 
 class ProviderFactory:

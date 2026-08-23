@@ -35,7 +35,7 @@ class MemoryEntry:
     embedding_vector: Optional[List[float]] = None  # For semantic search
     metadata: Dict = None
 
-    def to_dict(self):
+    def to_dict(self) -> Dict:
         return asdict(self)
 
 
@@ -171,7 +171,7 @@ class MemoryStore:
         row = self.cursor.fetchone()
         return self._row_to_entry(row) if row else None
 
-    def update_memory(self, memory_id: str, content: str):
+    def update_memory(self, memory_id: str, content: str) -> None:
         """Update memory content."""
         self.cursor.execute(
             "UPDATE memories SET content = ? WHERE id = ?",
@@ -179,12 +179,12 @@ class MemoryStore:
         )
         self.conn.commit()
 
-    def delete_memory(self, memory_id: str):
+    def delete_memory(self, memory_id: str) -> None:
         """Delete memory entry."""
         self.cursor.execute("DELETE FROM memories WHERE id = ?", (memory_id,))
         self.conn.commit()
 
-    def clear_memories(self, memory_type: Optional[str] = None):
+    def clear_memories(self, memory_type: Optional[str] = None) -> None:
         """
         Clear memories.
 
@@ -223,7 +223,7 @@ class MemoryStore:
             metadata=json.loads(row[7]),
         )
 
-    def close(self):
+    def close(self) -> None:
         """Close database connection."""
         self.conn.close()
 
@@ -248,7 +248,7 @@ class ConversationMemory:
         role: str,  # "user", "assistant", "system"
         content: str,
         metadata: Optional[Dict] = None,
-    ):
+    ) -> None:
         """
         Add message to conversation.
 
@@ -305,11 +305,11 @@ class ConversationMemory:
             return self.current_conversation[-num_messages :]
         return self.current_conversation
 
-    def clear(self):
+    def clear(self) -> None:
         """Clear current conversation."""
         self.current_conversation = []
 
-    def export(self, path: str):
+    def export(self, path: str) -> None:
         """Export conversation to JSON file."""
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w") as f:

@@ -11,14 +11,10 @@ import json
 import logging
 
 from src.config.model_config import ModelConfig, ModelType
+from src.errors import CheckpointIncompatibilityError
 
 
 logger = logging.getLogger(__name__)
-
-
-class CheckpointIncompatibilityError(Exception):
-    """Raised when checkpoint architecture is incompatible with target model."""
-    pass
 
 
 class CheckpointLoader:

@@ -37,7 +37,7 @@ class Step:
     result: Optional[str] = None
     error: Optional[str] = None
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         return {
             "id": self.id,
             "description": self.description,
@@ -59,12 +59,12 @@ class Plan:
     total_steps: int = 0
     completed_steps: int = 0
 
-    def add_step(self, step: Step):
+    def add_step(self, step: Step) -> None:
         """Add step to plan."""
         self.steps.append(step)
         self.total_steps += 1
 
-    def mark_step_complete(self, step_id: str, result: str):
+    def mark_step_complete(self, step_id: str, result: str) -> None:
         """Mark step as complete."""
         for step in self.steps:
             if step.id == step_id:
@@ -73,7 +73,7 @@ class Plan:
                 self.completed_steps += 1
                 break
 
-    def mark_step_failed(self, step_id: str, error: str):
+    def mark_step_failed(self, step_id: str, error: str) -> None:
         """Mark step as failed."""
         for step in self.steps:
             if step.id == step_id:
@@ -87,7 +87,7 @@ class Plan:
             return 0.0
         return self.completed_steps / self.total_steps
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         return {
             "id": self.id,
             "goal": self.goal,
@@ -151,13 +151,13 @@ class Planner:
         """Get plan by ID."""
         return self.plans.get(plan_id)
 
-    def update_step_result(self, plan_id: str, step_id: str, result: str):
+    def update_step_result(self, plan_id: str, step_id: str, result: str) -> None:
         """Update step result."""
         plan = self.get_plan(plan_id)
         if plan:
             plan.mark_step_complete(step_id, result)
 
-    def update_step_error(self, plan_id: str, step_id: str, error: str):
+    def update_step_error(self, plan_id: str, step_id: str, error: str) -> None:
         """Update step error."""
         plan = self.get_plan(plan_id)
         if plan:
@@ -172,13 +172,13 @@ class Planner:
                     return step
         return None
 
-    def mark_plan_complete(self, plan_id: str):
+    def mark_plan_complete(self, plan_id: str) -> None:
         """Mark plan as complete."""
         plan = self.get_plan(plan_id)
         if plan:
             plan.status = PlanStatus.COMPLETED
 
-    def mark_plan_failed(self, plan_id: str):
+    def mark_plan_failed(self, plan_id: str) -> None:
         """Mark plan as failed."""
         plan = self.get_plan(plan_id)
         if plan:

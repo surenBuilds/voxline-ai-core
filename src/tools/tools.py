@@ -226,7 +226,7 @@ class ToolRegistry:
         self.register("write_file", FileWriteTool(self.workspace_root))
         self.register("list_directory", DirectoryListTool(self.workspace_root))
 
-    def register(self, name: str, tool: Tool):
+    def register(self, name: str, tool: Tool) -> None:
         """Register a tool."""
         self.tools[name] = tool
 

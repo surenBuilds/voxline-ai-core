@@ -97,7 +97,7 @@ class AutonomousAgent:
         self.execution_logs: List[ExecutionLog] = []
         self.task_counter = 0
 
-    def set_goal(self, goal: str):
+    def set_goal(self, goal: str) -> None:
         """Set agent goal."""
         self.current_goal = goal
         self.state = AgentState.IDLE
@@ -261,10 +261,10 @@ class AutonomousAgent:
         """Get available tools."""
         return list(self.tools.tools.keys())
 
-    def add_tool(self, name: str, tool):
+    def add_tool(self, name: str, tool) -> None:
         """Add new tool."""
         self.tools.register(name, tool)
 
-    def cancel(self):
+    def cancel(self) -> None:
         """Cancel current execution."""
         self.state = AgentState.FAILED

@@ -40,7 +40,7 @@ Voxline AI is a bilingual (Armenian + English) AI platform built around a custom
          Tokenizer
 ```
 
-## Package Structure
+## Package Structure (Canonical)
 
 ```
 src/
@@ -57,8 +57,11 @@ src/
   agent/          AutonomousAgent, AgentState, ExecutionLog
   business/       BusinessAgent, BusinessPlan, BusinessPlanStep
   api/            FastAPI server, ConversationalAI
+  evaluation/     (Phase 3 — placeholder)
+  errors.py       Centralized error hierarchy (VoxlineError base)
   checkpoint.py   CheckpointLoader (save/load with config validation)
   logging.py      StructuredLogger, SecretFilteringFormatter, JSONFormatter
+  legacy/         Archived v0.3 modules (reference only)
 ```
 
 ## Core Components
@@ -106,6 +109,40 @@ src/
 |-----------|----------|---------|
 | CheckpointLoader | `src/checkpoint.py` | Model save/load with config validation |
 | StructuredLogger | `src/logging.py` | Logging with secret filtering and JSON output |
+| Error hierarchy | `src/errors.py` | Centralized exceptions (VoxlineError base class) |
+
+## Error Hierarchy
+
+```
+VoxlineError
+├── ModelError
+│   ├── ModelLoadError
+│   ├── ModelInferenceError
+│   └── ModelConfigError
+├── TokenizerError
+│   ├── TokenizerLoadError
+│   └── TokenizerEncodeError
+├── CheckpointError
+│   ├── CheckpointIncompatibilityError
+│   └── CheckpointLoadError
+├── ProviderError
+│   ├── ProviderNotFoundError
+│   └── ProviderUnavailableError
+├── MemoryError
+│   └── MemoryStoreError
+├── ToolError
+│   ├── ToolNotFoundError
+│   ├── ToolExecutionError
+│   └── ToolPermissionError
+├── ConfigError
+│   ├── ConfigLoadError
+│   └── ConfigValidationError
+├── TrainingError
+│   └── TrainingDataError
+└── AgentError
+    ├── AgentTimeoutError
+    └── AgentMaxIterationsError
+```
 
 ## Data Flow
 
@@ -151,10 +188,23 @@ Goal
 | Vocab size | 1,109 | 50,000 |
 | Tokenizer | BPE | BPE |
 
+## Legacy Modules
+
+Legacy v0.3 modules are archived in `src/legacy/` for reference:
+
+| Legacy File | Canonical Replacement |
+|-------------|----------------------|
+| `src/legacy/model.py` | `src/model/transformer.py` (VoxlineTransformer) |
+| `src/legacy/tokenizer.py` | `src/tokenizer/bpe.py` (BPETokenizer) |
+| `src/legacy/config.py` | `src/training/trainer.py` (TrainingConfig) |
+| `src/legacy/dataset.py` | `src/training/trainer.py` (LanguageModelDataset) |
+| `src/legacy/train.py` | `src/training/trainer.py` (Trainer) |
+| `src/legacy/chat.py` | `src/api/chat.py` (ConversationalAI) |
+
+Root-level legacy files (`main.py`, `train.py`, `generate.py`, `chat.py`) are v0.3 artifacts retained for reference.
+
 ## Known Issues
 
-1. **Package/module shadowing**: Legacy top-level modules (`src/model.py`, `src/tokenizer.py`, `src/config.py`) shadow same-named packages. Packages take precedence.
-2. **Two GenerationConfig classes**: `src.inference.generator.GenerationConfig` (max_new_tokens) vs `src.providers.base.GenerationConfig` (max_tokens).
-3. **Two TrainingConfig classes**: `src.training.trainer.TrainingConfig` vs legacy `src.config.TrainingConfig`.
-4. **Planner.decompose_task()** is a stub returning `[]`.
-5. **Model quality**: Current model (936K params) produces incoherent outputs. Perplexity ~135.8.
+1. **Two GenerationConfig classes**: `src.inference.generator.GenerationConfig` (max_new_tokens) vs `src.providers.base.GenerationConfig` (max_tokens). Not merged because they serve different purposes (model-level vs provider-level).
+2. **Planner.decompose_task()** is a stub returning `[]`.
+3. **Model quality**: Current model (936K params) produces incoherent outputs. Perplexity ~135.8.

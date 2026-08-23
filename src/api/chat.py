@@ -134,7 +134,7 @@ class ConversationalAI:
         """Get conversation context."""
         return self.conversation_memory.get_context(num_messages=num_messages)
 
-    def clear_conversation(self):
+    def clear_conversation(self) -> None:
         """Clear current conversation."""
         self.conversation_memory.clear()
 
@@ -156,7 +156,7 @@ class ConversationalAI:
             tags=tags or [],
         )
 
-    def export_conversation(self, path: str):
+    def export_conversation(self, path: str) -> None:
         """Export conversation to file."""
         self.conversation_memory.export(path)
 
@@ -193,7 +193,7 @@ class ConversationalAI:
 
         return response.strip()
 
-    def set_system_instruction(self, instruction: str):
+    def set_system_instruction(self, instruction: str) -> None:
         """Set system instruction."""
         self.system_instruction = instruction
 
