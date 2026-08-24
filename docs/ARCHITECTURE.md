@@ -57,7 +57,7 @@ src/
   agent/          AutonomousAgent, AgentState, ExecutionLog
   business/       BusinessAgent, BusinessPlan, BusinessPlanStep
   api/            FastAPI server, ConversationalAI
-  evaluation/     (Phase 3 — placeholder)
+  evaluation/     Schemas, metrics, datasets, runner, reports, comparison
   errors.py       Centralized error hierarchy (VoxlineError base)
   checkpoint.py   CheckpointLoader (save/load with config validation)
   logging.py      StructuredLogger, SecretFilteringFormatter, JSONFormatter
@@ -95,6 +95,18 @@ src/
 | LocalVoxlineProvider | `src/providers/local_voxline.py` | Wraps native VoxlineTransformer, streaming support |
 | **QwenProvider** | `src/providers/qwen_provider.py` | Wraps local Qwen2.5 via HuggingFace transformers, chat template |
 | ProviderFactory | `src/providers/factory.py` | Creates providers from VoxlineConfig, lazy registration |
+
+### Evaluation Layer
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| BenchmarkCase | `src/evaluation/schemas.py` | Benchmark case with prompt, expected answer, category, language |
+| EvalReport | `src/evaluation/schemas.py` | Complete evaluation report with per-case results and summaries |
+| Metrics | `src/evaluation/metrics.py` | 12 metric functions: exact_match, contains, similarity, format, number |
+| Datasets | `src/evaluation/datasets.py` | JSONL benchmark loading, saving, filtering |
+| EvaluationRunner | `src/evaluation/runner.py` | Orchestrates provider evaluation against benchmark suites |
+| Reports | `src/evaluation/reports.py` | Text formatting, JSON save/load for reports |
+| Comparison | `src/evaluation/comparison.py` | Run comparison, regression detection |
 
 ### Configuration
 

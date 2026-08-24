@@ -14,10 +14,11 @@ Architecture is ahead of model intelligence. All components functional but model
 | pytest (test_business_agent.py) | PASS | 2/2 |
 | pytest (test_architecture.py) | PASS | 35/35 |
 | pytest (test_providers.py) | PASS | 19/19 |
-| pytest (total, excl. Qwen) | PASS | **76/76** |
+| pytest (test_evaluation.py) | PASS | 83/83 |
+| pytest (total, excl. Qwen) | PASS | **160/160** |
 | pytest (test_providers.py Qwen) | PASS | 8/8 (requires model download) |
 | Smoke tests (baseline_smoke.py) | PASS | **14/14** |
-| Total (non-Qwen) | **PASS** | **90/90** |
+| Total (non-Qwen) | **PASS** | **174/174** |
 
 ## Component Status
 
@@ -44,6 +45,12 @@ Architecture is ahead of model intelligence. All components functional but model
 | Error hierarchy | Working | Centralized in src/errors.py |
 | **FastAPI Server** | **Working** | Provider-configurable via --provider flag |
 | CLI chat.py | Working | Interactive chat with memory |
+| **Evaluation Schemas** | **Working** | BenchmarkCase, CaseResult, EvalReport, HumanEvalScores |
+| **Evaluation Metrics** | **Working** | 12 metric functions: exact, contains, similarity, format, number |
+| **Evaluation Datasets** | **Working** | JSONL benchmark loading, filtering, built-in benchmarks |
+| **Evaluation Runner** | **Working** | Provider evaluation orchestration, failure classification |
+| **Evaluation Reports** | **Working** | Text formatting, JSON save/load |
+| **Evaluation Comparison** | **Working** | Run comparison, regression detection |
 
 ## Bugs Fixed (Phase 0 + Phase 1 + Phase 2)
 
@@ -81,6 +88,17 @@ Architecture is ahead of model intelligence. All components functional but model
 10. **serve_v04.py made configurable**: `--provider` flag (native/qwen), uses `ProviderFactory.create()`
 11. **Provider tests added**: 27 tests in `tests/test_providers.py` covering ABC contract, LocalVoxlineProvider, QwenProvider, ProviderFactory, interface compliance
 
+### Phase 3
+12. **Evaluation schemas created**: `src/evaluation/schemas.py` — BenchmarkCase, CaseResult, EvalRunConfig, EvalReport, CategorySummary, HumanEvalScores, FailureCategory, MetricType enums
+13. **Evaluation metrics created**: `src/evaluation/metrics.py` — 12 metric functions covering exact match, contains, keyword, sequence similarity, word overlap, length ratio, number match, format check, context retention, classification accuracy
+14. **Evaluation datasets created**: `src/evaluation/datasets.py` — JSONL benchmark loading, saving, built-in benchmark discovery, category/language/tag filtering
+15. **Evaluation runner created**: `src/evaluation/runner.py` — EvaluationRunner with provider evaluation, timeout handling, failure classification, pass/fail determination
+16. **Evaluation reports created**: `src/evaluation/reports.py` — Text report formatting, JSON save/load for results, summary, config
+17. **Evaluation comparison created**: `src/evaluation/comparison.py` — Compare two runs, detect regressions by metric delta, save comparison to JSON
+18. **Benchmarks created**: `benchmarks/armenian.jsonl` (19 cases), `benchmarks/english.jsonl` (18 cases) covering vocabulary, sentence completion, QA, instruction following, translation, reasoning, classification
+19. **CLI entrypoints created**: `evaluate.py` (run evaluations), `compare_evaluations.py` (compare two runs)
+20. **Evaluation tests added**: 83 tests in `tests/test_evaluation.py` covering schemas, metrics, datasets, runner, reports, comparison
+
 ## Canonical Module Map
 
 | Module | Canonical Location | Status |
@@ -97,6 +115,7 @@ Architecture is ahead of model intelligence. All components functional but model
 | Business | `src/business/agent.py` | Canonical |
 | **Providers** | `src/providers/base.py` + implementations | **Canonical (Phase 2 updated)** |
 | API | `src/api/chat.py`, `serve_v04.py` | Canonical |
+| **Evaluation** | `src/evaluation/` (schemas, metrics, datasets, runner, reports, comparison) | **Canonical (Phase 3)** |
 | Errors | `src/errors.py` | Canonical |
 | Logging | `src/logging.py` | Canonical |
 | Checkpoint | `src/checkpoint.py` | Canonical |
@@ -143,4 +162,5 @@ Architecture is ahead of model intelligence. All components functional but model
 | feat: Voxline AI Core v0.3 stable | `471abab` | v0.3 release |
 | chore: establish v0.4 baseline | `8d14de2` | Phase 0: safety + baseline |
 | refactor: establish canonical core architecture | `88d0507` | Phase 1: clean architecture |
-| feat: introduce unified AI provider architecture | — | Phase 2: provider system (pending) |
+| feat: introduce unified AI provider architecture | `c477a7a` | Phase 2: provider system |
+| feat: add Voxline evaluation framework | (pending) | Phase 3: evaluation system |
