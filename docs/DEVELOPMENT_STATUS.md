@@ -13,12 +13,13 @@ Architecture is ahead of model intelligence. All components functional but model
 | pytest (test_core.py) | PASS | 20/20 |
 | pytest (test_business_agent.py) | PASS | 2/2 |
 | pytest (test_architecture.py) | PASS | 35/35 |
-| pytest (test_providers.py) | PASS | 19/19 |
-| pytest (test_evaluation.py) | PASS | 83/83 |
-| pytest (total, excl. Qwen) | PASS | **160/160** |
-| pytest (test_providers.py Qwen) | PASS | 7/7 (requires model download, shared instance) |
-| Smoke tests (baseline_smoke.py) | PASS | **14/14** |
-| Total | **PASS** | **174/174** (160 + 7 Qwen + 14 smoke + 13 Qwen smoke = 181) |
+| pytest (test_providers.py) | PASS | 27/27 |
+| pytest (test_evaluation.py) | PASS | 121/121 |
+| pytest (test_assistant.py) | PASS | 28/28 |
+| pytest (test_assistant_context.py) | PASS | 36/36 |
+| pytest (test_assistant_chat.py) | PASS | 26/26 |
+| Smoke tests (baseline_smoke.py) | PASS | 14/14 |
+| Total | **PASS** | **301/301** |
 
 ## Component Status
 
@@ -39,18 +40,22 @@ Architecture is ahead of model intelligence. All components functional but model
 | **AIProvider ABC** | **Working** | chat, stream, health_check, generate, get_model_info |
 | **LocalVoxlineProvider** | **Working** | Native Voxline, streaming, ModelInfo |
 | **QwenProvider** | **Working** | HuggingFace Qwen2.5 local, chat template (Phase 4 fixed: BatchEncoding + dtype) |
-| **ProviderFactory** | **Working** | Lazy registration, configurable creation |
-| VoxlineConfig | Working | Environment-driven, defaults functional |
+| **ProviderFactory** | **Working** | Lazy registration, configurable creation (Phase 6: default=qwen) |
+| VoxlineConfig | Working | Environment-driven, defaults functional (Phase 6: default provider=qwen) |
 | ModelConfig | Working | Checkpoint compatibility, from_dict robust |
 | Error hierarchy | Working | Centralized in src/errors.py |
-| **FastAPI Server** | **Working** | Provider-configurable via --provider flag |
+| **FastAPI Server** | **Working** | Provider-configurable via --provider flag (Phase 6: default=qwen) |
 | CLI chat.py | Working | Interactive chat with memory |
-| **Evaluation Schemas** | **Working** | BenchmarkCase, CaseResult, EvalReport, HumanEvalScores |
-| **Evaluation Metrics** | **Working** | 12 metric functions: exact, contains, similarity, format, number |
+| **Evaluation Schemas** | **Working** | BenchmarkCase, CaseResult, EvalReport, HumanEvalScores, EvaluationStatus |
+| **Evaluation Metrics** | **Working** | 20+ metric functions: exact, contains, smart_contains, task-specific (Phase 6) |
 | **Evaluation Datasets** | **Working** | JSONL benchmark loading, filtering, built-in benchmarks |
-| **Evaluation Runner** | **Working** | Provider evaluation orchestration, failure classification |
+| **Evaluation Runner** | **Working** | Provider evaluation orchestration, failure classification, task-specific pass logic |
 | **Evaluation Reports** | **Working** | Text formatting, JSON save/load |
 | **Evaluation Comparison** | **Working** | Run comparison, regression detection |
+| **Text Normalization** | **Working** | Unicode, whitespace, numbers, punctuation, Armenian-specific (Phase 6 new) |
+| **ChatAssistant** | **Working** | AIProvider integration, session management, context construction, selective memory (Phase 7) |
+| **ContextBuilder** | **Working** | Memory injection, history budgeting, mode-specific context, ordered assembly (Phase 7) |
+| **Session / SessionManager** | **Working** | In-memory session store, mode isolation, eviction, CRUD (Phase 7) |
 
 ## Bugs Fixed (Phase 0 + Phase 1 + Phase 2 + Phase 4)
 
@@ -120,7 +125,7 @@ Architecture is ahead of model intelligence. All components functional but model
 | Business | `src/business/agent.py` | Canonical |
 | **Providers** | `src/providers/base.py` + implementations | **Canonical (Phase 2 updated)** |
 | API | `src/api/chat.py`, `serve_v04.py` | Canonical |
-| **Evaluation** | `src/evaluation/` (schemas, metrics, datasets, runner, reports, comparison) | **Canonical (Phase 3)** |
+| **Evaluation** | `src/evaluation/` (schemas, metrics, datasets, runner, reports, comparison, normalize) | **Canonical (Phase 3 + Phase 6)** |
 | Errors | `src/errors.py` | Canonical |
 | Logging | `src/logging.py` | Canonical |
 | Checkpoint | `src/checkpoint.py` | Canonical |
@@ -172,9 +177,9 @@ Architecture is ahead of model intelligence. All components functional but model
 6. **No authentication**: API endpoints unauthenticated.
 7. **No streaming**: FastAPI /chat doesn't support streaming responses yet.
 8. **Qwen Armenian capability**: Qwen2.5-0.5B scores 0% on Armenian benchmarks. Limited Armenian vocabulary and instruction following.
-9. **Evaluation metrics strictness**: Many Qwen "failures" are due to overly strict metrics (e.g., exact_match penalizes correct but verbose answers). Metrics tuning planned for Phase 6.
-10. **Armenian benchmark quality**: Prompts contain typos, non-standard orthography, and template-generated text. Benchmark rewrite needed.
-11. **Memory constraints**: 3.2 GB available RAM limits fine-tuning options to QLoRA only.
+9. **Armenian benchmark quality**: Prompts contain typos, non-standard orthography, and template-generated text. Benchmark rewrite needed.
+10. **Memory constraints**: 3.2 GB available RAM limits fine-tuning options to QLoRA only.
+11. **Evaluation metrics**: Phase 6 added normalization and task-specific metrics, but V1 results remain unchanged for historical comparison.
 
 ## Git History
 
@@ -186,4 +191,5 @@ Architecture is ahead of model intelligence. All components functional but model
 | feat: introduce unified AI provider architecture | `c477a7a` | Phase 2: provider system |
 | feat: add Voxline evaluation framework | `3c0cc76` | Phase 3: evaluation system |
 | fix: stabilize Qwen provider runtime | `a541afe` | Phase 4: runtime fix + baseline comparison |
-| docs: intelligence strategy and model improvement roadmap | TBD | Phase 5: analysis, strategy, Phase 6 recommendation |
+| docs: intelligence strategy and model improvement roadmap | `833da85` | Phase 5: analysis, strategy, Phase 6 recommendation |
+| feat: evaluation calibration + Qwen deployment foundation | TBD | Phase 6: normalization, task-specific metrics, default provider=qwen |

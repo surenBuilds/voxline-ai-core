@@ -123,3 +123,38 @@ class AgentTimeoutError(AgentError):
 
 class AgentMaxIterationsError(AgentError):
     """Agent exceeded maximum iterations."""
+
+
+# Session errors
+class SessionError(VoxlineError):
+    """Base session error."""
+
+
+class SessionNotFoundError(SessionError):
+    """Requested session does not exist."""
+
+
+class SessionExpiredError(SessionError):
+    """Session has expired."""
+
+
+# Workspace errors
+class WorkspaceError(VoxlineError):
+    """Base workspace error."""
+
+
+class WorkspaceBoundaryError(WorkspaceError):
+    """Operation attempted outside workspace boundary."""
+
+
+# Coding agent errors
+class CodingAgentError(VoxlineError):
+    """Base coding agent error."""
+
+
+class AgentPlanError(CodingAgentError):
+    """Agent produced an invalid or unparseable plan."""
+
+
+class CommandDeniedError(ToolError):
+    """Command not in the allowed command list."""

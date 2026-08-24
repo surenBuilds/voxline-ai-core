@@ -20,6 +20,14 @@ from src.evaluation.metrics import (
     word_overlap, length_ratio, number_match, format_check,
     context_retention_score, compute_case_metrics, aggregate_category_metrics,
     any_contains, best_reference_similarity, classification_accuracy,
+    smart_contains, any_smart_contains, normalized_match,
+    vocabulary_accuracy, sentence_completion_match, qa_match,
+    instruction_following_score, translation_score, reasoning_score,
+)
+from src.evaluation.normalize import (
+    normalize_for_comparison, normalize_case, normalize_whitespace,
+    normalize_unicode, normalize_numbers, normalize_punctuation_hy,
+    extract_key_answer, normalize_answer,
 )
 from src.evaluation.datasets import (
     load_benchmark, save_benchmark, get_builtin_benchmarks,
@@ -284,8 +292,9 @@ class TestExactMatch(unittest.TestCase):
     def test_mismatch(self):
         self.assertEqual(exact_match("hello", "world"), 0.0)
 
-    def test_whitespace_stripped(self):
-        self.assertEqual(exact_match("  hello  ", "hello"), 1.0)
+    def test_whitespace_not_stripped(self):
+        """exact_match does NOT strip whitespace — use normalized_match for that."""
+        self.assertEqual(exact_match("  hello  ", "hello"), 0.0)
 
 
 class TestContainsMatch(unittest.TestCase):
@@ -818,6 +827,216 @@ class TestComparison(unittest.TestCase):
         )
         self.assertFalse(d.regressed)
         self.assertAlmostEqual(d.delta, 0.2)
+
+
+# ---------------------------------------------------------------------------
+# Phase 6: Normalization tests
+# ---------------------------------------------------------------------------
+
+class TestNormalization(unittest.TestCase):
+
+    def test_normalize_unicode(self):
+        self.assertEqual(normalize_unicode("café"), "caf\u00e9")
+
+    def test_normalize_whitespace(self):
+        self.assertEqual(normalize_whitespace("  hello   world  "), "hello world")
+        self.assertEqual(normalize_whitespace("a\tb\nc"), "a b c")
+
+    def test_normalize_case(self):
+        self.assertEqual(normalize_case("Hello WORLD"), "hello world")
+
+    def test_normalize_numbers(self):
+        self.assertEqual(normalize_numbers("300,000 people"), "300000 people")
+        self.assertEqual(normalize_numbers("$ 50"), "$50")
+
+    def test_normalize_punctuation_hy(self):
+        result = normalize_punctuation_hy("hello \u00ABworld\u00BB")
+        self.assertNotIn("\u00AB", result)
+        self.assertNotIn("\u00BB", result)
+
+    def test_normalize_for_comparison_en(self):
+        result = normalize_for_comparison("  Hello World!  ", "en")
+        self.assertEqual(result, "hello world!")
+
+    def test_normalize_for_comparison_hy(self):
+        result = normalize_for_comparison("\u0540\u0565\u0575\u0578\u0582\u0576", "hy")
+        self.assertIsInstance(result, str)
+        self.assertTrue(len(result) > 0)
+
+    def test_extract_key_answer_short(self):
+        self.assertEqual(extract_key_answer("Paris"), "Paris")
+
+    def test_extract_key_answer_verbose(self):
+        result = extract_key_answer("The capital of France is Paris.")
+        self.assertIsInstance(result, str)
+        self.assertTrue(len(result) > 0)
+
+    def test_normalize_answer(self):
+        result = normalize_answer("Paris is the capital.", "en")
+        self.assertIsInstance(result, str)
+
+
+# ---------------------------------------------------------------------------
+# Phase 6: Smart contains + normalized match tests
+# ---------------------------------------------------------------------------
+
+class TestSmartContains(unittest.TestCase):
+
+    def test_basic_match(self):
+        self.assertEqual(smart_contains("hello world", "world", "en"), 1.0)
+
+    def test_case_insensitive(self):
+        self.assertEqual(smart_contains("Hello World", "hello", "en"), 1.0)
+
+    def test_no_match(self):
+        self.assertEqual(smart_contains("hello", "world", "en"), 0.0)
+
+    def test_with_reference_list(self):
+        refs = ["Paris", "the capital", "city of lights"]
+        self.assertEqual(any_smart_contains("I visited Paris last year", refs, "en"), 1.0)
+
+    def test_no_reference_match(self):
+        refs = ["Berlin", "London"]
+        self.assertEqual(any_smart_contains("I visited Paris", refs, "en"), 0.0)
+
+
+class TestNormalizedMatch(unittest.TestCase):
+
+    def test_identical(self):
+        self.assertEqual(normalized_match("hello", "hello"), 1.0)
+
+    def test_case_insensitive(self):
+        self.assertEqual(normalized_match("Hello", "hello"), 1.0)
+
+    def test_whitespace(self):
+        self.assertEqual(normalized_match("  hello  ", "hello"), 1.0)
+
+    def test_mismatch(self):
+        self.assertEqual(normalized_match("hello", "world"), 0.0)
+
+
+# ---------------------------------------------------------------------------
+# Phase 6: Task-specific metric tests
+# ---------------------------------------------------------------------------
+
+class TestVocabularyAccuracy(unittest.TestCase):
+
+    def test_exact_match(self):
+        self.assertEqual(vocabulary_accuracy("water", "water", "en"), 1.0)
+
+    def test_contains(self):
+        self.assertEqual(vocabulary_accuracy("The water is cold", "water", "en"), 1.0)
+
+    def test_no_match(self):
+        self.assertEqual(vocabulary_accuracy("fire", "water", "en"), 0.0)
+
+
+class TestQAMatch(unittest.TestCase):
+
+    def test_exact(self):
+        self.assertEqual(qa_match("Paris", "Paris", ["Capital of France"], "en"), 1.0)
+
+    def test_number_match(self):
+        self.assertEqual(qa_match("The answer is 3 million", "3 million", [], "en"), 1.0)
+
+    def test_contains(self):
+        self.assertEqual(qa_match("The capital is Paris", "Paris", [], "en"), 1.0)
+
+    def test_reference_match(self):
+        self.assertEqual(qa_match("The population is about 3 million", "3 million", ["~3 million"], "en"), 1.0)
+
+
+class TestTranslationScore(unittest.TestCase):
+
+    def test_exact_reference(self):
+        self.assertEqual(translation_score("Bonjour", "Bonjour", ["Hi"], "fr"), 1.0)
+
+    def test_reference_match(self):
+        self.assertEqual(translation_score("Hello", "Bonjour", ["Hello"], "en"), 1.0)
+
+    def test_similar(self):
+        score = translation_score("Learn English quickly", "Learn English fast.", ["Quickly learn English."], "en")
+        self.assertGreater(score, 0.5)
+
+
+class TestReasoningScore(unittest.TestCase):
+
+    def test_number_answer(self):
+        self.assertEqual(reasoning_score("9", "9", [], "hy"), 1.0)
+
+    def test_contains_number(self):
+        self.assertEqual(reasoning_score("The answer is 9", "9", [], "hy"), 1.0)
+
+    def test_wrong_number(self):
+        self.assertEqual(reasoning_score("5", "9", [], "hy"), 0.0)
+
+
+class TestNumberMatchV2(unittest.TestCase):
+
+    def test_exact(self):
+        self.assertEqual(number_match("42", "42"), 1.0)
+
+    def test_in_text(self):
+        self.assertEqual(number_match("The answer is 42", "42"), 1.0)
+
+    def test_with_commas(self):
+        self.assertEqual(number_match("3,000,000", "3000000"), 1.0)
+
+    def test_mismatch(self):
+        self.assertEqual(number_match("42", "99"), 0.0)
+
+    def test_no_numbers_in_expected(self):
+        self.assertEqual(number_match("anything", "no numbers"), 1.0)
+
+
+class TestComputeCaseMetricsV2(unittest.TestCase):
+
+    def test_vocabulary_metrics(self):
+        metrics = compute_case_metrics("water", "water", ["liquid"], "vocabulary")
+        self.assertIn("vocabulary_accuracy", metrics)
+        self.assertEqual(metrics["vocabulary_accuracy"], 1.0)
+
+    def test_qa_metrics(self):
+        metrics = compute_case_metrics("Paris", "Paris", ["Capital"], "question_answering")
+        self.assertIn("qa_match", metrics)
+        self.assertEqual(metrics["qa_match"], 1.0)
+
+    def test_translation_metrics(self):
+        metrics = compute_case_metrics("Bonjour", "Bonjour", ["Hello"], "translation")
+        self.assertIn("translation_score", metrics)
+        self.assertEqual(metrics["translation_score"], 1.0)
+
+    def test_reasoning_metrics(self):
+        metrics = compute_case_metrics("9", "9", [], "reasoning")
+        self.assertIn("reasoning_score", metrics)
+        self.assertEqual(metrics["reasoning_score"], 1.0)
+
+
+# ---------------------------------------------------------------------------
+# Phase 6: EvaluationStatus + runner tests
+# ---------------------------------------------------------------------------
+
+class TestEvaluationStatus(unittest.TestCase):
+
+    def test_status_values(self):
+        from src.evaluation.schemas import EvaluationStatus
+        self.assertEqual(EvaluationStatus.PASS.value, "pass")
+        self.assertEqual(EvaluationStatus.PARTIAL.value, "partial")
+        self.assertEqual(EvaluationStatus.FAIL.value, "fail")
+        self.assertEqual(EvaluationStatus.INVALID_EVALUATION.value, "invalid_evaluation")
+
+
+class TestHumanEvalScoresNotes(unittest.TestCase):
+
+    def test_notes_field(self):
+        hs = HumanEvalScores(coherence=4, notes="Good response")
+        self.assertEqual(hs.notes, "Good response")
+        d = hs.to_dict()
+        self.assertEqual(d["notes"], "Good response")
+
+    def test_notes_none(self):
+        hs = HumanEvalScores(coherence=3)
+        self.assertIsNone(hs.notes)
 
 
 if __name__ == "__main__":

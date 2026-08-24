@@ -82,6 +82,7 @@ def load_report(report_dir: str | Path) -> EvalReport:
                 correctness=hs.get("correctness"),
                 instruction_following=hs.get("instruction_following"),
                 language_quality=hs.get("language_quality"),
+                notes=hs.get("notes"),
             )
 
         cr = CaseResult(

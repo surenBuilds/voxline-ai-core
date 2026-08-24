@@ -17,27 +17,34 @@ Voxline AI is a bilingual (Armenian + English) AI platform built around a custom
                     | Orchestrator|
                     +------+------+
                            |
-             +-------------+-------------+
-             |             |             |
-             v             v             v
-         Memory         Planner        Tools
-             |             |             |
-             +-------------+-------------+
-                           |
-                    +------+------+
-                    | AI Provider |
-                    +------+------+
-                           |
-            +--------------+--------------+
-            |                             |
-            v                             v
-      Native Voxline                    Qwen
-         Model                         Backend
-            |
-            v
-       Transformer
-            |
-         Tokenizer
+              +------------+------------+
+              |            |            |
+              v            v            v
+         ChatAssistant  Business     CodingAgent
+              |         Assistant        |
+              +------+  |  +------+     |
+                     |  |  |      |     |
+                     v  v  v      v     v
+                 ContextBuilder  Workspace
+                     |
+              +------+------+
+              |   Memory    |
+              +------+------+
+                     |
+              +------+------+
+              | AI Provider |
+              +------+------+
+                     |
+          +----------+----------+
+          |                     |
+          v                     v
+    Native Voxline            Qwen
+       Model                Backend
+          |
+          v
+     Transformer
+          |
+       Tokenizer
 ```
 
 ## Package Structure (Canonical)
@@ -57,7 +64,8 @@ src/
   agent/          AutonomousAgent, AgentState, ExecutionLog
   business/       BusinessAgent, BusinessPlan, BusinessPlanStep
   api/            FastAPI server, ConversationalAI
-  evaluation/     Schemas, metrics, datasets, runner, reports, comparison
+  assistant/      ChatAssistant, ContextBuilder, Session, SessionManager (Phase 7)
+  evaluation/     Schemas, metrics, datasets, runner, reports, comparison, normalize
   errors.py       Centralized error hierarchy (VoxlineError base)
   checkpoint.py   CheckpointLoader (save/load with config validation)
   logging.py      StructuredLogger, SecretFilteringFormatter, JSONFormatter
@@ -65,6 +73,16 @@ src/
 ```
 
 ## Core Components
+
+### Assistant Layer (Phase 7)
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| ChatAssistant | `src/assistant/chat.py` | Main conversational interface — orchestrates session, context, provider |
+| ContextBuilder | `src/assistant/context.py` | Assembles structured context (memory, history, mode) for provider input |
+| Session | `src/assistant/session.py` | Isolates conversation state by mode (chat/business/coding) |
+| SessionManager | `src/assistant/session.py` | In-memory session store with eviction and mode isolation |
+| AssistantResponse | `src/assistant/chat.py` | Structured response with text, session, provider, and metadata |
 
 ### Intelligence Layer
 
@@ -102,9 +120,12 @@ src/
 |-----------|----------|---------|
 | BenchmarkCase | `src/evaluation/schemas.py` | Benchmark case with prompt, expected answer, category, language |
 | EvalReport | `src/evaluation/schemas.py` | Complete evaluation report with per-case results and summaries |
-| Metrics | `src/evaluation/metrics.py` | 12 metric functions: exact_match, contains, similarity, format, number |
+| EvaluationStatus | `src/evaluation/schemas.py` | PASS, PARTIAL, FAIL, INVALID_EVALUATION status enum |
+| HumanEvalScores | `src/evaluation/schemas.py` | Structured human evaluation with notes field (Phase 6) |
+| Metrics | `src/evaluation/metrics.py` | 20+ metric functions: task-specific, smart_contains, normalized_match |
+| Normalize | `src/evaluation/normalize.py` | Text normalization: Unicode, whitespace, numbers, Armenian-specific |
 | Datasets | `src/evaluation/datasets.py` | JSONL benchmark loading, saving, filtering |
-| EvaluationRunner | `src/evaluation/runner.py` | Orchestrates provider evaluation against benchmark suites |
+| EvaluationRunner | `src/evaluation/runner.py` | Orchestrates provider evaluation with task-specific pass logic |
 | Reports | `src/evaluation/reports.py` | Text formatting, JSON save/load for reports |
 | Comparison | `src/evaluation/comparison.py` | Run comparison, regression detection |
 
@@ -112,7 +133,7 @@ src/
 
 | Component | Location | Purpose |
 |-----------|----------|---------|
-| VoxlineConfig | `src/config/settings.py` | Environment-driven global config (provider, model path, device) |
+| VoxlineConfig | `src/config/settings.py` | Environment-driven global config (provider=qwen default, model path, device) |
 | ModelConfig | `src/config/model_config.py` | Architecture config with checkpoint compatibility checking |
 | TrainingConfig | `src/training/trainer.py` | Training hyperparameters |
 
@@ -146,20 +167,46 @@ VoxlineError
 ├── ToolError
 │   ├── ToolNotFoundError
 │   ├── ToolExecutionError
-│   └── ToolPermissionError
+│   ├── ToolPermissionError
+│   └── CommandDeniedError
 ├── ConfigError
 │   ├── ConfigLoadError
 │   └── ConfigValidationError
 ├── TrainingError
 │   └── TrainingDataError
-└── AgentError
-    ├── AgentTimeoutError
-    └── AgentMaxIterationsError
+├── AgentError
+│   ├── AgentTimeoutError
+│   └── AgentMaxIterationsError
+├── SessionError
+│   ├── SessionNotFoundError
+│   └── SessionExpiredError
+├── WorkspaceError
+│   └── WorkspaceBoundaryError
+└── CodingAgentError
+    └── AgentPlanError
 ```
 
 ## Data Flow
 
-### Chat Request
+### Assistant Chat (Phase 7)
+```
+User message
+  -> ChatAssistant.chat(session_id, message)
+    -> SessionManager.get(session_id)
+    -> ContextBuilder.build(session, message)
+      -> MemoryStore.search_memories(query)  ← memory actually reaches the model
+      -> Format session history (capped by budget)
+      -> Add mode instruction
+      -> Assemble ordered messages
+    -> AIProvider.chat(messages, config)
+      -> Provider handles system instruction + generation
+    -> Session.add_message(user)
+    -> Session.add_message(assistant)
+    -> Optional: MemoryStore.add_memory() (only if explicitly useful)
+  -> AssistantResponse
+```
+
+### Chat Request (Legacy)
 ```
 User message
   -> FastAPI /chat endpoint

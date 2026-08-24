@@ -14,4 +14,5 @@ __all__ = [
     "api",
     "config",
     "attention",
+    "assistant",
 ]

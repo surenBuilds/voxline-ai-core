@@ -28,7 +28,7 @@ class VoxlineConfig:
     # Default values (public, no secrets)
     DEFAULTS = {
         # AI Provider
-        "AI_PROVIDER": "local_hf",  # local_hf only; no hosted provider is used
+        "AI_PROVIDER": "qwen",  # qwen|native — default deployment provider
         "AI_MODEL_PATH": "models/Qwen2.5-0.5B-Instruct",
         "AI_TOKENIZER_PATH": "checkpoints/voxline_tokenizer_v0_3.json",
         "AI_DEVICE": "auto",  # auto|cpu|cuda|mps
@@ -51,6 +51,22 @@ class VoxlineConfig:
         "API_HOST": "0.0.0.0",
         "API_PORT": "8000",
         "API_DEBUG": "false",
+        
+        # Assistant
+        "ASSISTANT_NAME": "Voxline",
+        "ASSISTANT_DEFAULT_MODE": "chat",  # chat|business|coding
+        "ASSISTANT_MAX_HISTORY": "20",
+        
+        # Agent (coding agent)
+        "AGENT_MAX_ITERATIONS": "15",
+        "AGENT_STEP_TIMEOUT": "60",
+        "AGENT_EXECUTION_POLICY": "safe",  # safe|autonomous
+        
+        # Workspace (coding agent boundaries)
+        "CODING_WORKSPACE_ROOT": ".",
+        "CODING_ALLOWED_COMMANDS": "python,pytest,pip,git",
+        "CODING_MAX_FILE_SIZE_MB": "10",
+        "CODING_MAX_OUTPUT_BYTES": "1048576",
         
         # Environment
         "ENVIRONMENT": "development",  # development|staging|production
@@ -180,6 +196,55 @@ class VoxlineConfig:
     @property
     def database_url(self) -> str:
         return self.get_required("DATABASE_URL")
+    
+    @property
+    def assistant_name(self) -> str:
+        return self.get("ASSISTANT_NAME")
+    
+    @property
+    def assistant_default_mode(self) -> str:
+        return self.get("ASSISTANT_DEFAULT_MODE")
+    
+    @property
+    def assistant_max_history(self) -> int:
+        return self.get_int("ASSISTANT_MAX_HISTORY", 20)
+    
+    @property
+    def agent_max_iterations(self) -> int:
+        return self.get_int("AGENT_MAX_ITERATIONS", 15)
+    
+    @property
+    def agent_step_timeout(self) -> int:
+        return self.get_int("AGENT_STEP_TIMEOUT", 60)
+    
+    @property
+    def agent_execution_policy(self) -> str:
+        return self.get("AGENT_EXECUTION_POLICY")
+    
+    @property
+    def coding_workspace_root(self) -> Path:
+        return Path(self.get("CODING_WORKSPACE_ROOT"))
+    
+    @property
+    def coding_allowed_commands(self) -> list:
+        raw = self.get("CODING_ALLOWED_COMMANDS", "")
+        return [c.strip() for c in raw.split(",") if c.strip()]
+    
+    @property
+    def coding_max_file_size_mb(self) -> int:
+        return self.get_int("CODING_MAX_FILE_SIZE_MB", 10)
+    
+    @property
+    def coding_max_output_bytes(self) -> int:
+        return self.get_int("CODING_MAX_OUTPUT_BYTES", 1048576)
+    
+    @property
+    def api_host(self) -> str:
+        return self.get("API_HOST")
+    
+    @property
+    def api_port(self) -> int:
+        return self.get_int("API_PORT", 8000)
     
     def is_development(self) -> bool:
         return self.environment == "development"

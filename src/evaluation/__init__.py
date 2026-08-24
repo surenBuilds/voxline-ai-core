@@ -8,9 +8,12 @@ report generation, and provider comparison.
 from src.evaluation.schemas import (
     BenchmarkCase, BenchmarkCategory, CaseResult,
     EvalRunConfig, EvalReport, CategorySummary,
-    MetricType, FailureCategory, HumanEvalScores,
+    MetricType, FailureCategory, HumanEvalScores, EvaluationStatus,
 )
 from src.evaluation.metrics import compute_case_metrics, aggregate_category_metrics
+from src.evaluation.normalize import (
+    normalize_for_comparison, normalize_answer, extract_key_answer,
+)
 from src.evaluation.datasets import (
     load_benchmark, save_benchmark, get_builtin_benchmarks,
     load_builtin_benchmark, filter_cases,
@@ -27,8 +30,9 @@ from src.evaluation.comparison import (
 __all__ = [
     "BenchmarkCase", "BenchmarkCategory", "CaseResult",
     "EvalRunConfig", "EvalReport", "CategorySummary",
-    "MetricType", "FailureCategory", "HumanEvalScores",
+    "MetricType", "FailureCategory", "HumanEvalScores", "EvaluationStatus",
     "compute_case_metrics", "aggregate_category_metrics",
+    "normalize_for_comparison", "normalize_answer", "extract_key_answer",
     "load_benchmark", "save_benchmark", "get_builtin_benchmarks",
     "load_builtin_benchmark", "filter_cases",
     "EvaluationRunner", "EvaluationError",

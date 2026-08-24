@@ -38,6 +38,14 @@ class MetricType(Enum):
     HUMAN = "human"
 
 
+class EvaluationStatus(Enum):
+    """Evaluation outcome status."""
+    PASS = "pass"
+    PARTIAL = "partial"
+    FAIL = "fail"
+    INVALID_EVALUATION = "invalid_evaluation"
+
+
 class FailureCategory(Enum):
     """Categories for failed benchmark cases."""
     LANGUAGE_ERROR = "language_error"
@@ -60,6 +68,7 @@ class HumanEvalScores:
     correctness: Optional[int] = None
     instruction_following: Optional[int] = None
     language_quality: Optional[int] = None
+    notes: Optional[str] = None
 
     def average(self) -> float:
         scores = [
@@ -77,6 +86,7 @@ class HumanEvalScores:
             "correctness": self.correctness,
             "instruction_following": self.instruction_following,
             "language_quality": self.language_quality,
+            "notes": self.notes,
             "average": self.average(),
         }
 

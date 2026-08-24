@@ -24,8 +24,8 @@ class ProviderFactory:
     The config's AI_PROVIDER setting selects which provider to use.
 
     Supported provider IDs:
+    - "qwen": QwenProvider (requires model_path) — default
     - "native": NativeVoxlineProvider (requires model + tokenizer)
-    - "qwen": QwenProvider (requires model_path)
     """
 
     _providers: Dict[str, Type[AIProvider]] = {}
