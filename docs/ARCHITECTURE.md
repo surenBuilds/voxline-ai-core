@@ -64,7 +64,7 @@ src/
   agent/          AutonomousAgent, AgentState, ExecutionLog
   business/       BusinessAgent, BusinessPlan, BusinessPlanStep
   api/            FastAPI server, ConversationalAI
-  assistant/      ChatAssistant, ContextBuilder, Session, SessionManager (Phase 7)
+  assistant/      ChatAssistant, BusinessAssistant, ContextBuilder, Session, SessionManager (Phase 7)
   evaluation/     Schemas, metrics, datasets, runner, reports, comparison, normalize
   errors.py       Centralized error hierarchy (VoxlineError base)
   checkpoint.py   CheckpointLoader (save/load with config validation)
@@ -79,6 +79,14 @@ src/
 | Component | Location | Purpose |
 |-----------|----------|---------|
 | ChatAssistant | `src/assistant/chat.py` | Main conversational interface — orchestrates session, context, provider |
+| BusinessAssistant | `src/assistant/business.py` | Business intelligence — analysis, strategy, KPIs, action planning |
+| BusinessContext | `src/assistant/business.py` | Typed business context: company, industry, KPIs, goals |
+| BusinessRequest | `src/assistant/business.py` | Structured request with task_type, message, context, language |
+| BusinessResponse | `src/assistant/business.py` | Structured response with text, recommendations, action items, risks |
+| BusinessPlan | `src/assistant/business.py` | Structured plan: objective, strategy, action items, risks, metrics |
+| KPI | `src/assistant/business.py` | Key Performance Indicator with value, target, unit, period |
+| Recommendation | `src/assistant/business.py` | Strategic recommendation with rationale, impact, effort, risk |
+| ActionItem | `src/assistant/business.py` | Actionable step with priority, dependencies, expected outcome |
 | ContextBuilder | `src/assistant/context.py` | Assembles structured context (memory, history, mode) for provider input |
 | Session | `src/assistant/session.py` | Isolates conversation state by mode (chat/business/coding) |
 | SessionManager | `src/assistant/session.py` | In-memory session store with eviction and mode isolation |
@@ -206,7 +214,24 @@ User message
   -> AssistantResponse
 ```
 
-### Chat Request (Legacy)
+### Business Intelligence (Phase 7)
+```
+BusinessRequest
+  -> BusinessAssistant.analyze(session_id, request)
+    -> SessionManager.get(session_id)
+    -> Validate session mode = BUSINESS
+    -> Build business context string from BusinessContext
+    -> ContextBuilder.build(session, message, mode_instructions, business_context)
+      -> MemoryStore.search_memories(query)
+      -> Format session history
+      -> Add business-specific mode instruction
+      -> Assemble ordered messages
+    -> AIProvider.chat(messages, config)
+    -> Session.add_message(user)
+    -> Session.add_message(assistant)
+    -> Optional: MemoryStore.add_memory() (business-tagged)
+  -> BusinessResponse
+```
 ```
 User message
   -> FastAPI /chat endpoint

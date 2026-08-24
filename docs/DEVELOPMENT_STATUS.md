@@ -18,8 +18,9 @@ Architecture is ahead of model intelligence. All components functional but model
 | pytest (test_assistant.py) | PASS | 28/28 |
 | pytest (test_assistant_context.py) | PASS | 36/36 |
 | pytest (test_assistant_chat.py) | PASS | 26/26 |
+| pytest (test_assistant_business.py) | PASS | 55/55 |
 | Smoke tests (baseline_smoke.py) | PASS | 14/14 |
-| Total | **PASS** | **301/301** |
+| Total | **PASS** | **356/356** |
 
 ## Component Status
 
@@ -56,6 +57,9 @@ Architecture is ahead of model intelligence. All components functional but model
 | **ChatAssistant** | **Working** | AIProvider integration, session management, context construction, selective memory (Phase 7) |
 | **ContextBuilder** | **Working** | Memory injection, history budgeting, mode-specific context, ordered assembly (Phase 7) |
 | **Session / SessionManager** | **Working** | In-memory session store, mode isolation, eviction, CRUD (Phase 7) |
+| **BusinessAssistant** | **Working** | Business intelligence: 12 task types, structured context, KPI analysis, action planning (Phase 7) |
+| **BusinessContext/Request/Response** | **Working** | Typed business models: context injection, request validation, structured responses (Phase 7) |
+| **BusinessPlan/KPI/ActionItem/Recommendation** | **Working** | Structured planning: priorities, dependencies, risks, success metrics (Phase 7) |
 
 ## Bugs Fixed (Phase 0 + Phase 1 + Phase 2 + Phase 4)
 
