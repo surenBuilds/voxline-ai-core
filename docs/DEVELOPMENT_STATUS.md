@@ -151,9 +151,20 @@ Architecture is ahead of model intelligence. All components functional but model
 | Training epochs | 9 (of 15 max) | N/A |
 | Training time | ~32 min (CPU) | N/A |
 
+## Intelligence Assessment (Phase 5)
+
+| Metric | Native Voxline | Qwen2.5-0.5B |
+|--------|---------------|--------------|
+| English true capability | 0% (incoherent output) | ~55-61% (metric-adjusted) |
+| Armenian true capability | 0% (incoherent output) | ~0% (no semantic understanding) |
+| Failure mode | Random character sequences | Verbose answers, language confusion |
+| Viability | Not viable (retired as production target) | Viable for English tasks |
+
+**Key insight:** 8 of 15 Qwen English "failures" are metric false negatives — the model answered correctly but strict scoring rejected it. See `docs/INTELLIGENCE_STRATEGY.md` for full analysis.
+
 ## Known Limitations
 
-1. **Model quality**: 936K params is too small for coherent generation. Perplexity 135.8. All outputs are incoherent mixed Armenian/Latin tokens.
+1. **Model quality**: Native Voxline (936K params) produces only incoherent mixed Armenian/Latin tokens. Retired as production target.
 2. **Training data**: ~4,628 of 5,064 Armenian lines are template-generated, not natural text.
 3. **No GPU**: CPU-only limits model size and training speed.
 4. **Two GenerationConfig classes**: `src.inference.generator.GenerationConfig` (max_new_tokens) vs `src.providers.base.GenerationConfig` (max_tokens). Kept separate — they serve different abstraction levels.
@@ -161,7 +172,9 @@ Architecture is ahead of model intelligence. All components functional but model
 6. **No authentication**: API endpoints unauthenticated.
 7. **No streaming**: FastAPI /chat doesn't support streaming responses yet.
 8. **Qwen Armenian capability**: Qwen2.5-0.5B scores 0% on Armenian benchmarks. Limited Armenian vocabulary and instruction following.
-9. **Evaluation metrics strictness**: Many Qwen "failures" are due to overly strict metrics (e.g., sequence_similarity penalizes correct but verbose answers). Metrics tuning needed.
+9. **Evaluation metrics strictness**: Many Qwen "failures" are due to overly strict metrics (e.g., exact_match penalizes correct but verbose answers). Metrics tuning planned for Phase 6.
+10. **Armenian benchmark quality**: Prompts contain typos, non-standard orthography, and template-generated text. Benchmark rewrite needed.
+11. **Memory constraints**: 3.2 GB available RAM limits fine-tuning options to QLoRA only.
 
 ## Git History
 
@@ -172,4 +185,5 @@ Architecture is ahead of model intelligence. All components functional but model
 | refactor: establish canonical core architecture | `88d0507` | Phase 1: clean architecture |
 | feat: introduce unified AI provider architecture | `c477a7a` | Phase 2: provider system |
 | feat: add Voxline evaluation framework | `3c0cc76` | Phase 3: evaluation system |
-| fix: stabilize Qwen provider runtime | `239ae9f` | Phase 4: runtime fix + baseline comparison |
+| fix: stabilize Qwen provider runtime | `a541afe` | Phase 4: runtime fix + baseline comparison |
+| docs: intelligence strategy and model improvement roadmap | TBD | Phase 5: analysis, strategy, Phase 6 recommendation |
