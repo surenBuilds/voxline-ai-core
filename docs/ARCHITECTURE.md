@@ -59,7 +59,8 @@ src/
   attention/      ScaledDotProductAttention, MultiHeadAttention, CausalSelfAttention
   config/         VoxlineConfig (env-driven), ModelConfig (architecture), ModelType enum
   memory/         MemoryStore (SQLite), ConversationMemory
-  tools/          ToolRegistry, Calculator, FileReadTool, FileWriteTool, DirectoryListTool
+  tools/          ToolRegistry, Calculator, FileReadTool, FileWriteTool, DirectoryListTool, CommandExecutor
+  tools/security.py  PathSecurity, CommandPolicy, CommandValidator, AuditLog, ToolSecurityProfile (Phase 7 Step 7)
   planner/        Planner, ReasoningEngine, Plan, Step, PlanStatus
   agent/          AutonomousAgent, AgentState, ExecutionLog
   business/       BusinessAgent, BusinessPlan, BusinessPlanStep
@@ -106,7 +107,14 @@ src/
 | Component | Location | Purpose |
 |-----------|----------|---------|
 | MemoryStore | `src/memory/memory.py` | SQLite-backed memory with search, typed memories, conversation history |
-| ToolRegistry | `src/tools/tools.py` | Registered tools with schemas, permissions, execution |
+| ToolRegistry | `src/tools/tools.py` | Registered tools with schemas, three-phase API (validate/authorize/execute) |
+| PathSecurity | `src/tools/security.py` | Workspace boundary enforcement via `Path.is_relative_to()` — no startswith |
+| FileSizeGuard | `src/tools/security.py` | Enforces max file size for reads and writes |
+| CommandPolicy | `src/tools/security.py` | Allowed/denied/approval command lists, blocked argument patterns |
+| CommandValidator | `src/tools/security.py` | Parses commands (shlex), validates cwd, runs subprocess with shell=False |
+| CommandExecutor | `src/tools/tools.py` | Tool wrapper for CommandValidator with audit integration |
+| AuditLog | `src/tools/security.py` | Append-only audit log for all tool invocations |
+| ToolSecurityProfile | `src/tools/security.py` | Per-tool capability declarations (filesystem, command, network) |
 | Planner | `src/planner/reasoning.py` | Task decomposition, plan creation, progress tracking |
 | ReasoningEngine | `src/planner/reasoning.py` | Goal analysis, execution planning, revision decisions |
 | AutonomousAgent | `src/agent/agent.py` | Orchestrates model + memory + tools + planner in execution loop |
@@ -258,6 +266,41 @@ Goal
       -> Replan if needed
   -> Final result
 ```
+
+### Tool Security Layer (Phase 7 Step 7)
+
+```
+CodingAgent (future)
+    ↓
+ToolRegistry
+    ↓
+validate_request()   → PathSecurity, CommandValidator.parse()
+    ↓
+authorize_request()  → PathSecurity.validate(), CommandPolicy.evaluate()
+    ↓
+execute()            → Tool.execute() + AuditLog.record()
+    ↓
+Workspace / Files / Commands / OS
+```
+
+| Component | Purpose |
+|-----------|---------|
+| `PathSecurity` | Resolves paths via `Path.resolve()` + `is_relative_to()`. Rejects `../`, absolute escapes, symlink escapes. Never uses `startswith()`. |
+| `FileSizeGuard` | Enforces max file size for reads (stat) and writes (content length). |
+| `CommandPolicy` | Declares allowed/denied/approval-required executables. Blocks dangerous argument patterns (`-c`, `&&`, `;`, `\|`, `$()`, backticks). |
+| `CommandValidator` | Parses commands via `shlex.split()` (posix-aware). Validates cwd against workspace. Runs `subprocess.run(shell=False)` with timeout, output limit, sanitized env. |
+| `CommandExecutor` | Tool wrapper that integrates CommandValidator + AuditLog into ToolRegistry. |
+| `AuditLog` | Append-only log: timestamp, session_id, tool, operation, decision, reason, success, duration, exit_code. No secrets logged. |
+| `ToolSecurityProfile` | Per-tool capability flags: filesystem_read, filesystem_write, command_execution, network_access, requires_approval. Default all False. |
+| `ToolPermissionResult` | Typed result: decision (ALLOWED/DENIED/REQUIRES_APPROVAL), reason, metadata. |
+
+**Workspace model:** All file operations anchored to `workspace_root` from config. Relative paths resolved against workspace (not cwd). `Path.resolve()` + `is_relative_to()` is the only boundary check.
+
+**Command policy:** `python`, `pytest`, `pip`, `git` allowed by default. `rm`, `del`, `format`, `shutdown` denied. `-c`, `&&`, `;`, `|`, `$()`, backticks always denied regardless of executable.
+
+**Environment:** Subprocess inherits `PATH` but secrets (API keys, tokens, passwords) are stripped. Variables containing `SECRET`, `TOKEN`, `KEY`, `PASSWORD` are excluded.
+
+**Network access:** DENIED by default. No network tool is registered. Future capabilities (web research, APIs) will be separate, explicitly granted tools.
 
 ## Model Specifications
 

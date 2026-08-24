@@ -19,8 +19,9 @@ Architecture is ahead of model intelligence. All components functional but model
 | pytest (test_assistant_context.py) | PASS | 36/36 |
 | pytest (test_assistant_chat.py) | PASS | 26/26 |
 | pytest (test_assistant_business.py) | PASS | 55/55 |
+| pytest (test_tools_security.py) | PASS | 71/71 (2 skipped: Windows symlink) |
 | Smoke tests (baseline_smoke.py) | PASS | 14/14 |
-| Total | **PASS** | **356/356** |
+| Total | **PASS** | **427/427** |
 
 ## Component Status
 
@@ -33,7 +34,7 @@ Architecture is ahead of model intelligence. All components functional but model
 | TextGenerator | Working | Temperature, top-k, top-p, repetition penalty |
 | ConversationalAI | Working | Multi-turn, memory integration, response cleaning |
 | MemoryStore | Working | SQLite, search, CRUD, conversation memory |
-| ToolRegistry | Working | 4 tools: calculator, file_read, file_write, directory_list |
+| ToolRegistry | Working | 5 tools: calculator, file_read, file_write, directory_list, execute_command (Phase 7 Step 7: three-phase API, security integration) |
 | Planner | Working | Plan creation, step tracking, progress |
 | ReasoningEngine | Working | Goal analysis, plan creation, revision decisions |
 | AutonomousAgent | Working | Execution loop, state management |
@@ -45,6 +46,11 @@ Architecture is ahead of model intelligence. All components functional but model
 | VoxlineConfig | Working | Environment-driven, defaults functional (Phase 6: default provider=qwen) |
 | ModelConfig | Working | Checkpoint compatibility, from_dict robust |
 | Error hierarchy | Working | Centralized in src/errors.py |
+| **PathSecurity** | **Working** | `Path.resolve()` + `is_relative_to()` workspace boundary (Phase 7 Step 7) |
+| **CommandPolicy** | **Working** | Allowed/denied/approval command lists, blocked argument patterns (Phase 7 Step 7) |
+| **CommandValidator** | **Working** | shlex parsing, cwd validation, subprocess(shell=False), timeout, output limit (Phase 7 Step 7) |
+| **AuditLog** | **Working** | Append-only audit for all tool invocations, session tracking, no secrets (Phase 7 Step 7) |
+| **FileSizeGuard** | **Working** | File size enforcement for reads and writes (Phase 7 Step 7) |
 | **FastAPI Server** | **Working** | Provider-configurable via --provider flag (Phase 6: default=qwen) |
 | CLI chat.py | Working | Interactive chat with memory |
 | **Evaluation Schemas** | **Working** | BenchmarkCase, CaseResult, EvalReport, HumanEvalScores, EvaluationStatus |
