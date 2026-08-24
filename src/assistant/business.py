@@ -537,7 +537,7 @@ class BusinessAssistant:
                         asyncio.run,
                         self.provider.chat(ctx.messages, config),
                     )
-                    return future.result(timeout=60)
+                    return future.result(timeout=180)
             else:
                 return asyncio.run(self.provider.chat(ctx.messages, config))
         except Exception as exc:

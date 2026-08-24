@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voxline AI</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0f0f0f;
+  --surface: #1a1a1a;
+  --surface2: #242424;
+  --border: #333;
+  --text: #e0e0e0;
+  --text-dim: #888;
+  --accent: #6c5ce7;
+  --accent-dim: #5a4bd1;
+  --user-bg: #2d2d5e;
+  --assistant-bg: #1e1e1e;
+  --error-bg: #3e1f1f;
+  --error-text: #ff6b6b;
+  --success: #00b894;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+header h1 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.header-info {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.header-info .badge {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 8px;
+}
+
+.header-info .badge.ok { border-color: var(--success); color: var(--success); }
+.header-info .badge.err { border-color: var(--error-text); color: var(--error-text); }
+
+.mode-bar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 20px;
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.mode-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 6px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.15s;
+}
+
+.mode-btn:hover { border-color: var(--accent); color: var(--text); }
+.mode-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.mode-btn.disabled { opacity: 0.4; cursor: not-allowed; }
+
+.chat-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.message {
+  max-width: 75%;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.message.user {
+  align-self: flex-end;
+  background: var(--user-bg);
+  border-bottom-right-radius: 4px;
+}
+
+.message.assistant {
+  align-self: flex-start;
+  background: var(--assistant-bg);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 4px;
+}
+
+.message.error {
+  align-self: flex-start;
+  background: var(--error-bg);
+  border: 1px solid var(--error-text);
+  color: var(--error-text);
+  font-size: 13px;
+}
+
+.message .role {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.typing-indicator {
+  align-self: flex-start;
+  background: var(--assistant-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: none;
+}
+
+.typing-indicator.visible { display: block; }
+
+.typing-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.typing-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  animation: blink 1.4s infinite both;
+}
+
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes blink {
+  0%, 80%, 100% { opacity: 0.3; }
+  40% { opacity: 1; }
+}
+
+.input-bar {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 16px 20px;
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.input-bar textarea {
+  flex: 1;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 10px 14px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: none;
+  min-height: 42px;
+  max-height: 120px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.input-bar textarea:focus { border-color: var(--accent); }
+
+.input-bar textarea::placeholder { color: var(--text-dim); }
+
+.send-btn {
+  background: var(--accent);
+  border: none;
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.send-btn:hover { background: var(--accent-dim); }
+.send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  gap: 8px;
+}
+
+.empty-state .icon { font-size: 48px; opacity: 0.3; }
+.empty-state h2 { font-size: 18px; font-weight: 500; }
+.empty-state p { font-size: 13px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Voxline AI</h1>
+  <div class="header-info">
+    <span class="badge" id="provider-badge">Loading...</span>
+    <span class="badge" id="model-badge">--</span>
+  </div>
+</header>
+
+<div class="mode-bar">
+  <button class="mode-btn active" data-mode="chat" onclick="switchMode('chat')">Chat</button>
+  <button class="mode-btn" data-mode="business" onclick="switchMode('business')">Business</button>
+  <button class="mode-btn disabled" data-mode="coding" title="Coming soon">Coding (Soon)</button>
+</div>
+
+<div class="chat-container" id="chat">
+  <div class="empty-state" id="empty-state">
+    <div class="icon">V</div>
+    <h2>Voxline AI</h2>
+    <p>Select a mode and start chatting</p>
+  </div>
+</div>
+
+<div class="typing-indicator" id="typing">
+  <div class="typing-dots"><span></span><span></span><span></span></div>
+</div>
+
+<div class="input-bar">
+  <textarea id="input" placeholder="Type a message..." rows="1"
+    onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send()}"
+    oninput="autoResize(this)"></textarea>
+  <button class="send-btn" id="send-btn" onclick="send()">Send</button>
+</div>
+
+<script>
+let currentMode = 'chat';
+let sending = false;
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+async function loadHealth() {
+  try {
+    const r = await fetch('/health');
+    const d = await r.json();
+    const pb = document.getElementById('provider-badge');
+    const mb = document.getElementById('model-badge');
+    if (d.status === 'healthy' || d.status === 'ok') {
+      pb.textContent = d.provider || 'Qwen';
+      pb.className = 'badge ok';
+    } else {
+      pb.textContent = d.status || 'error';
+      pb.className = 'badge err';
+    }
+    mb.textContent = d.model || '--';
+  } catch(e) {
+    document.getElementById('provider-badge').textContent = 'Offline';
+    document.getElementById('provider-badge').className = 'badge err';
+  }
+}
+
+function switchMode(mode) {
+  if (mode === 'coding') return;
+  currentMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(b => {
+    if (b.dataset.mode === mode) b.classList.add('active');
+    else b.classList.remove('active');
+  });
+  const input = document.getElementById('input');
+  input.placeholder = mode === 'business'
+    ? 'Ask a business question...'
+    : 'Type a message...';
+  input.focus();
+}
+
+function addMessage(role, text, isError) {
+  const chat = document.getElementById('chat');
+  const empty = document.getElementById('empty-state');
+  if (empty) empty.remove();
+
+  const div = document.createElement('div');
+  div.className = 'message ' + (isError ? 'error' : role);
+  if (!isError) {
+    const roleLabel = document.createElement('div');
+    roleLabel.className = 'role';
+    roleLabel.textContent = role === 'user' ? 'You' : 'Voxline';
+    div.appendChild(roleLabel);
+  }
+  const content = document.createElement('div');
+  content.textContent = text;
+  div.appendChild(content);
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+  return div;
+}
+
+function showTyping() {
+  const t = document.getElementById('typing');
+  const chat = document.getElementById('chat');
+  chat.appendChild(t);
+  t.classList.add('visible');
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function hideTyping() {
+  document.getElementById('typing').classList.remove('visible');
+}
+
+async function send() {
+  if (sending) return;
+  const input = document.getElementById('input');
+  const msg = input.value.trim();
+  if (!msg) return;
+
+  input.value = '';
+  input.style.height = 'auto';
+  sending = true;
+  document.getElementById('send-btn').disabled = true;
+
+  addMessage('user', msg);
+  showTyping();
+
+  try {
+    let url, body;
+    if (currentMode === 'business') {
+      url = '/api/business';
+      body = { message: msg };
+    } else {
+      url = '/api/chat';
+      body = { message: msg };
+    }
+
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    const d = await r.json();
+    hideTyping();
+
+    if (!r.ok) {
+      addMessage('error', d.detail || d.error || 'Request failed', true);
+    } else {
+      const text = d.response || d.text || d.detail || '';
+      addMessage('assistant', text);
+    }
+  } catch(e) {
+    hideTyping();
+    addMessage('error', 'Network error: ' + e.message, true);
+  } finally {
+    sending = false;
+    document.getElementById('send-btn').disabled = false;
+    input.focus();
+  }
+}
+
+loadHealth();
+document.getElementById('input').focus();
+</script>
+</body>
+</html>
