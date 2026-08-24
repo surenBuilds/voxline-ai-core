@@ -42,7 +42,7 @@ class QwenProvider(AIProvider):
         self.model = AutoModelForCausalLM.from_pretrained(
             self.path,
             local_files_only=True,
-            torch_dtype=torch.float32 if self.device == "cpu" else "auto",
+            dtype=torch.float32 if self.device == "cpu" else "auto",
         ).to(self.device)
         self.model.eval()
         self._param_count = sum(p.numel() for p in self.model.parameters())
@@ -126,11 +126,15 @@ class QwenProvider(AIProvider):
     def _generate_chat(self, messages: List[Dict[str, str]], config: GenerationConfig) -> str:
         """Generate one response from OpenAI-style messages, locally."""
         if hasattr(self.tokenizer, "apply_chat_template") and self.tokenizer.chat_template:
-            input_ids = self.tokenizer.apply_chat_template(
+            chat_output = self.tokenizer.apply_chat_template(
                 messages,
                 add_generation_prompt=True,
                 return_tensors="pt",
-            ).to(self.device)
+            )
+            if hasattr(chat_output, "input_ids"):
+                input_ids = chat_output.input_ids.to(self.device)
+            else:
+                input_ids = chat_output.to(self.device)
         else:
             prompt = "\n".join(
                 f"{item['role'].title()}: {item['content']}" for item in messages

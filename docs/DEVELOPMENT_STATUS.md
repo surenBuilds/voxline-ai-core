@@ -16,9 +16,9 @@ Architecture is ahead of model intelligence. All components functional but model
 | pytest (test_providers.py) | PASS | 19/19 |
 | pytest (test_evaluation.py) | PASS | 83/83 |
 | pytest (total, excl. Qwen) | PASS | **160/160** |
-| pytest (test_providers.py Qwen) | PASS | 8/8 (requires model download) |
+| pytest (test_providers.py Qwen) | PASS | 7/7 (requires model download, shared instance) |
 | Smoke tests (baseline_smoke.py) | PASS | **14/14** |
-| Total (non-Qwen) | **PASS** | **174/174** |
+| Total | **PASS** | **174/174** (160 + 7 Qwen + 14 smoke + 13 Qwen smoke = 181) |
 
 ## Component Status
 
@@ -38,7 +38,7 @@ Architecture is ahead of model intelligence. All components functional but model
 | BusinessAgent | Working | Business plans, knowledge storage/retrieval |
 | **AIProvider ABC** | **Working** | chat, stream, health_check, generate, get_model_info |
 | **LocalVoxlineProvider** | **Working** | Native Voxline, streaming, ModelInfo |
-| **QwenProvider** | **Working** | HuggingFace Qwen2.5 local, chat template |
+| **QwenProvider** | **Working** | HuggingFace Qwen2.5 local, chat template (Phase 4 fixed: BatchEncoding + dtype) |
 | **ProviderFactory** | **Working** | Lazy registration, configurable creation |
 | VoxlineConfig | Working | Environment-driven, defaults functional |
 | ModelConfig | Working | Checkpoint compatibility, from_dict robust |
@@ -52,7 +52,7 @@ Architecture is ahead of model intelligence. All components functional but model
 | **Evaluation Reports** | **Working** | Text formatting, JSON save/load |
 | **Evaluation Comparison** | **Working** | Run comparison, regression detection |
 
-## Bugs Fixed (Phase 0 + Phase 1 + Phase 2)
+## Bugs Fixed (Phase 0 + Phase 1 + Phase 2 + Phase 4)
 
 ### Phase 0
 1. **`src/agent/agent.py`**: Added missing `MemoryStore` import
@@ -70,6 +70,11 @@ Architecture is ahead of model intelligence. All components functional but model
 9. **`src/providers/local_voxline.py`**: Updated to implement new ABC interface (added `model_id`, `supports_streaming`, `get_model_info()`, `chat()`)
 10. **`src/providers/factory.py`**: Refactored to use lazy provider registration and configurable creation from VoxlineConfig
 11. **`tests/test_architecture.py`**: Fixed import of `QwenProvider` (replaced removed `LocalTransformersProvider`)
+
+### Phase 4
+12. **`src/providers/qwen_provider.py`**: Fixed `apply_chat_template()` return type — extracts `.input_ids` from `BatchEncoding` (transformers 5.15.0 API change)
+13. **`src/providers/qwen_provider.py`**: Replaced deprecated `torch_dtype` parameter with `dtype` (transformers 5.15.0 rename)
+14. **`tests/test_providers.py`**: Changed `TestQwenProvider` to share single provider instance via `setUpClass` (memory constraint: 6GB RAM, 942MB model)
 
 ## Architecture Changes
 
@@ -135,25 +140,28 @@ Architecture is ahead of model intelligence. All components functional but model
 
 ## Performance Baseline
 
-| Metric | Value |
-|--------|-------|
-| Model load time | ~0.93s |
-| Inference latency | ~0.52s avg (50 tokens) |
-| Throughput | ~96 tok/s (CPU) |
-| Best model val_ppl | 135.78 |
-| Best model val_loss | 4.911 |
-| Training epochs | 9 (of 15 max) |
-| Training time | ~32 min (CPU) |
+| Metric | Native Voxline | Qwen2.5-0.5B |
+|--------|---------------|--------------|
+| Model load time | ~0.93s | ~3s |
+| Inference latency (50 tok) | ~1.4s avg | ~13.9s avg |
+| Throughput | ~0.73 tok/s | ~1.33 tok/s |
+| English pass rate | 0.0% (0/18) | 16.7% (3/18) |
+| Armenian pass rate | 0.0% (0/19) | 0.0% (0/19) |
+| Best model val_ppl | 135.78 | N/A |
+| Training epochs | 9 (of 15 max) | N/A |
+| Training time | ~32 min (CPU) | N/A |
 
 ## Known Limitations
 
-1. **Model quality**: 936K params is too small for coherent generation. Perplexity 135.8.
+1. **Model quality**: 936K params is too small for coherent generation. Perplexity 135.8. All outputs are incoherent mixed Armenian/Latin tokens.
 2. **Training data**: ~4,628 of 5,064 Armenian lines are template-generated, not natural text.
 3. **No GPU**: CPU-only limits model size and training speed.
 4. **Two GenerationConfig classes**: `src.inference.generator.GenerationConfig` (max_new_tokens) vs `src.providers.base.GenerationConfig` (max_tokens). Kept separate — they serve different abstraction levels.
 5. **Stub methods**: `Planner.decompose_task()` returns `[]`.
 6. **No authentication**: API endpoints unauthenticated.
 7. **No streaming**: FastAPI /chat doesn't support streaming responses yet.
+8. **Qwen Armenian capability**: Qwen2.5-0.5B scores 0% on Armenian benchmarks. Limited Armenian vocabulary and instruction following.
+9. **Evaluation metrics strictness**: Many Qwen "failures" are due to overly strict metrics (e.g., sequence_similarity penalizes correct but verbose answers). Metrics tuning needed.
 
 ## Git History
 
@@ -163,4 +171,5 @@ Architecture is ahead of model intelligence. All components functional but model
 | chore: establish v0.4 baseline | `8d14de2` | Phase 0: safety + baseline |
 | refactor: establish canonical core architecture | `88d0507` | Phase 1: clean architecture |
 | feat: introduce unified AI provider architecture | `c477a7a` | Phase 2: provider system |
-| feat: add Voxline evaluation framework | (pending) | Phase 3: evaluation system |
+| feat: add Voxline evaluation framework | `3c0cc76` | Phase 3: evaluation system |
+| fix: stabilize Qwen provider runtime | `239ae9f` | Phase 4: runtime fix + baseline comparison |

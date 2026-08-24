@@ -1,0 +1,131 @@
+{
+  "A_python": {
+    "status": "OK",
+    "detail": "3.13.14 (tags/v3.13.14:fd17997, Jun 10 2026, 13:03:48) [MSC v.1944 64 bit (AMD64)]",
+    "ms": 0
+  },
+  "B_os": {
+    "status": "OK",
+    "detail": "Windows 10 (10.0.18363)",
+    "ms": 670
+  },
+  "C_cpu": {
+    "status": "OK",
+    "detail": "Intel64 Family 6 Model 42 Stepping 7, GenuineIntel",
+    "ms": 0
+  },
+  "D_ram": {
+    "status": "OK",
+    "detail": "5.9 GB total, 3.2 GB available",
+    "ms": 16
+  },
+  "E_torch": {
+    "status": "OK",
+    "detail": "2.13.0+cpu (cuda=False, cpu=True)",
+    "ms": 6346
+  },
+  "F_transformers": {
+    "status": "OK",
+    "detail": "5.15.0",
+    "ms": 5214
+  },
+  "G_safetensors": {
+    "status": "OK",
+    "detail": "0.8.0",
+    "ms": 6
+  },
+  "H_tokenizers": {
+    "status": "OK",
+    "detail": "0.22.2",
+    "ms": 32
+  },
+  "I_numpy": {
+    "status": "OK",
+    "detail": "2.5.2",
+    "ms": 0
+  },
+  "J_model_files": {
+    "status": "OK",
+    "detail": {
+      "missing_required": [],
+      "weight_files": [
+        "model.safetensors"
+      ],
+      "weight_sizes": {
+        "model.safetensors": "942.3 MB"
+      },
+      "all_files": {
+        ".gitattributes": "0.0 MB",
+        "config.json": "0.0 MB",
+        "generation_config.json": "0.0 MB",
+        "LICENSE": "0.0 MB",
+        "merges.txt": "1.6 MB",
+        "model.safetensors": "942.3 MB",
+        "README.md": "0.0 MB",
+        "tokenizer.json": "6.7 MB",
+        "tokenizer_config.json": "0.0 MB",
+        "vocab.json": "2.6 MB"
+      }
+    },
+    "ms": 7
+  },
+  "K_config": {
+    "status": "OK",
+    "detail": {
+      "model_type": "qwen2",
+      "vocab_size": 151936,
+      "hidden_size": 896,
+      "num_hidden_layers": 24,
+      "num_attention_heads": 14,
+      "max_position_embeddings": 32768
+    },
+    "ms": 1
+  },
+  "L_tokenizer_load": {
+    "status": "OK",
+    "detail": {
+      "vocab_size": 151643,
+      "has_chat_template": true,
+      "test_encoding_shape": [
+        1,
+        4
+      ]
+    },
+    "ms": 7711
+  },
+  "M_model_load": {
+    "status": "OK",
+    "detail": {
+      "parameters": 494032768,
+      "dtype": "torch.float32",
+      "device": "cpu"
+    },
+    "ms": 6534
+  },
+  "N_forward_pass": {
+    "status": "OK",
+    "detail": {
+      "logits_shape": [
+        1,
+        1,
+        151936
+      ]
+    },
+    "ms": 17822
+  },
+  "O_generate": {
+    "status": "OK",
+    "detail": {
+      "generated_text": "\n\nI am trying to create a program that can find the maximum value in an array of integers.",
+      "output_length": 21
+    },
+    "ms": 11483
+  },
+  "P_chat_template_generate": {
+    "status": "OK",
+    "detail": {
+      "generated_text": "Hello! It's nice to meet you."
+    },
+    "ms": 15549
+  }
+}

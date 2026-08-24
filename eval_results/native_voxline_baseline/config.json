@@ -1,0 +1,14 @@
+{
+  "run_id": "run_2026_08_24_123133_dfa4cf",
+  "timestamp": "2026-08-24T12:31:33",
+  "provider_id": "local_voxline",
+  "model_id": "voxline_0.4.0",
+  "benchmark_name": "inline",
+  "benchmark_version": "1.0",
+  "generation_config": {
+    "max_tokens": 50,
+    "temperature": 0.7,
+    "top_p": 0.9
+  },
+  "environment": {}
+}

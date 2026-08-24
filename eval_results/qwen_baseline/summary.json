@@ -1,0 +1,97 @@
+{
+  "run_config": {
+    "run_id": "run_2026_08_24_123236_dd6912",
+    "timestamp": "2026-08-24T12:32:36",
+    "provider_id": "qwen",
+    "model_id": "Qwen2.5-0.5B-Instruct",
+    "benchmark_name": "inline",
+    "benchmark_version": "1.0",
+    "generation_config": {
+      "max_tokens": 50,
+      "temperature": 0.7,
+      "top_p": 0.9
+    },
+    "environment": {}
+  },
+  "summary": {
+    "total_cases": 18,
+    "total_passed": 3,
+    "total_failed": 15,
+    "total_errors": 0,
+    "overall_pass_rate": 0.16666666666666666,
+    "overall_avg_latency_ms": 13889.602131313748,
+    "overall_avg_throughput_tps": 1.329830975907085
+  },
+  "categories": [
+    {
+      "category": "classification",
+      "total_cases": 1,
+      "passed": 0,
+      "failed": 1,
+      "error": 0,
+      "pass_rate": 0.0,
+      "avg_latency_ms": 3924.907684326172,
+      "avg_throughput_tps": 0.2547830625401525
+    },
+    {
+      "category": "instruction_following",
+      "total_cases": 2,
+      "passed": 0,
+      "failed": 2,
+      "error": 0,
+      "pass_rate": 0.0,
+      "avg_latency_ms": 7499.59123134613,
+      "avg_throughput_tps": 1.272116175494796
+    },
+    {
+      "category": "question_answering",
+      "total_cases": 3,
+      "passed": 1,
+      "failed": 2,
+      "error": 0,
+      "pass_rate": 0.3333333333333333,
+      "avg_latency_ms": 15848.371346791586,
+      "avg_throughput_tps": 1.5588020497809572
+    },
+    {
+      "category": "reasoning",
+      "total_cases": 2,
+      "passed": 0,
+      "failed": 2,
+      "error": 0,
+      "pass_rate": 0.0,
+      "avg_latency_ms": 15704.100370407104,
+      "avg_throughput_tps": 1.1710423161658716
+    },
+    {
+      "category": "sentence_completion",
+      "total_cases": 3,
+      "passed": 0,
+      "failed": 3,
+      "error": 0,
+      "pass_rate": 0.0,
+      "avg_latency_ms": 16773.298343022663,
+      "avg_throughput_tps": 1.4634347724047336
+    },
+    {
+      "category": "translation",
+      "total_cases": 2,
+      "passed": 0,
+      "failed": 2,
+      "error": 0,
+      "pass_rate": 0.0,
+      "avg_latency_ms": 20958.57036113739,
+      "avg_throughput_tps": 1.3805299606760495
+    },
+    {
+      "category": "vocabulary",
+      "total_cases": 5,
+      "passed": 2,
+      "failed": 3,
+      "error": 0,
+      "pass_rate": 0.4,
+      "avg_latency_ms": 11979.679536819458,
+      "avg_throughput_tps": 1.393617426511374
+    }
+  ]
+}

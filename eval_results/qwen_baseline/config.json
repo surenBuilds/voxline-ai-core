@@ -1,0 +1,14 @@
+{
+  "run_id": "run_2026_08_24_123236_dd6912",
+  "timestamp": "2026-08-24T12:32:36",
+  "provider_id": "qwen",
+  "model_id": "Qwen2.5-0.5B-Instruct",
+  "benchmark_name": "inline",
+  "benchmark_version": "1.0",
+  "generation_config": {
+    "max_tokens": 50,
+    "temperature": 0.7,
+    "top_p": 0.9
+  },
+  "environment": {}
+}

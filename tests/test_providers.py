@@ -116,9 +116,17 @@ class TestLocalVoxlineProvider(unittest.TestCase):
 class TestQwenProvider(unittest.TestCase):
 
     MODEL_PATH = "models/Qwen2.5-0.5B-Instruct"
+    _provider = None
+
+    @classmethod
+    def setUpClass(cls):
+        if not os.path.exists(cls.MODEL_PATH):
+            return
+        from src.providers.qwen_provider import QwenProvider
+        cls._provider = QwenProvider(cls.MODEL_PATH, device="cpu")
 
     def setUp(self):
-        if not os.path.exists(self.MODEL_PATH):
+        if self._provider is None:
             self.skipTest(f"Qwen model not found at {self.MODEL_PATH}")
 
     def test_import(self):
@@ -126,41 +134,29 @@ class TestQwenProvider(unittest.TestCase):
         self.assertIsNotNone(QwenProvider)
 
     def test_provider_id(self):
-        from src.providers.qwen_provider import QwenProvider
-        p = QwenProvider(self.MODEL_PATH, device="cpu")
-        self.assertEqual(p.provider_id, "qwen")
+        self.assertEqual(self._provider.provider_id, "qwen")
 
     def test_model_id(self):
-        from src.providers.qwen_provider import QwenProvider
-        p = QwenProvider(self.MODEL_PATH, device="cpu")
-        self.assertIn("Qwen", p.model_id)
+        self.assertIn("Qwen", self._provider.model_id)
 
     def test_health_check(self):
-        from src.providers.qwen_provider import QwenProvider
-        p = QwenProvider(self.MODEL_PATH, device="cpu")
-        h = asyncio.run(p.health_check())
+        h = asyncio.run(self._provider.health_check())
         self.assertEqual(h.status, ProviderStatus.HEALTHY)
 
     def test_generate(self):
-        from src.providers.qwen_provider import QwenProvider
-        p = QwenProvider(self.MODEL_PATH, device="cpu")
         cfg = GenerationConfig(max_tokens=20, temperature=0.7)
-        result = asyncio.run(p.generate("Hello", cfg))
+        result = asyncio.run(self._provider.generate("Hello", cfg))
         self.assertIsInstance(result, str)
         self.assertTrue(len(result) > 0)
 
     def test_chat(self):
-        from src.providers.qwen_provider import QwenProvider
-        p = QwenProvider(self.MODEL_PATH, device="cpu")
         cfg = GenerationConfig(max_tokens=20, temperature=0.7)
         messages = [{"role": "user", "content": "Say hello"}]
-        result = asyncio.run(p.chat(messages, cfg))
+        result = asyncio.run(self._provider.chat(messages, cfg))
         self.assertIsInstance(result, str)
 
     def test_get_model_info(self):
-        from src.providers.qwen_provider import QwenProvider
-        p = QwenProvider(self.MODEL_PATH, device="cpu")
-        info = p.get_model_info()
+        info = self._provider.get_model_info()
         self.assertEqual(info.provider_id, "qwen")
         self.assertEqual(info.model_type, "huggingface")
         self.assertIsNotNone(info.parameters)

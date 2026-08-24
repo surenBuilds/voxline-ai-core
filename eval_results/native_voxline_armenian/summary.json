@@ -1,0 +1,87 @@
+{
+  "run_config": {
+    "run_id": "run_2026_08_24_124330_af1545",
+    "timestamp": "2026-08-24T12:43:30",
+    "provider_id": "local_voxline",
+    "model_id": "voxline_0.4.0",
+    "benchmark_name": "inline",
+    "benchmark_version": "1.0",
+    "generation_config": {
+      "max_tokens": 50,
+      "temperature": 0.7,
+      "top_p": 0.9
+    },
+    "environment": {}
+  },
+  "summary": {
+    "total_cases": 19,
+    "total_passed": 0,
+    "total_failed": 19,
+    "total_errors": 0,
+    "overall_pass_rate": 0.0,
+    "overall_avg_latency_ms": 1225.6376617833187,
+    "overall_avg_throughput_tps": 0.8283308339732982
+  },
+  "categories": [
+    {
+      "category": "instruction_following",
+      "total_cases": 2,
+      "passed": 0,
+      "failed": 2,
+      "error": 0,
+      "pass_rate": 0.0,
+      "avg_latency_ms": 1229.5020818710327,
+      "avg_throughput_tps": 0.8167526230772618
+    },
+    {
+      "category": "question_answering",
+      "total_cases": 3,
+      "passed": 0,
+      "failed": 3,
+      "error": 0,
+      "pass_rate": 0.0,
+      "avg_latency_ms": 1196.7026392618816,
+      "avg_throughput_tps": 0.8374470423257202
+    },
+    {
+      "category": "reasoning",
+      "total_cases": 2,
+      "passed": 0,
+      "failed": 2,
+      "error": 0,
+      "pass_rate": 0.0,
+      "avg_latency_ms": 1635.4970932006836,
+      "avg_throughput_tps": 0.6129866327233615
+    },
+    {
+      "category": "sentence_completion",
+      "total_cases": 3,
+      "passed": 0,
+      "failed": 3,
+      "error": 0,
+      "pass_rate": 0.0,
+      "avg_latency_ms": 1137.487570444743,
+      "avg_throughput_tps": 0.8799871709797356
+    },
+    {
+      "category": "translation",
+      "total_cases": 2,
+      "passed": 0,
+      "failed": 2,
+      "error": 0,
+      "pass_rate": 0.0,
+      "avg_latency_ms": 1308.7964057922363,
+      "avg_throughput_tps": 0.765895141771934
+    },
+    {
+      "category": "vocabulary",
+      "total_cases": 7,
+      "passed": 0,
+      "failed": 7,
+      "error": 0,
+      "pass_rate": 0.0,
+      "avg_latency_ms": 1133.8505404336113,
+      "avg_throughput_tps": 0.8849592014901692
+    }
+  ]
+}

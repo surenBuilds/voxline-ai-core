@@ -222,6 +222,8 @@ Root-level legacy files (`main.py`, `train.py`, `generate.py`, `chat.py`) are v0
 2. **Planner.decompose_task()** is a stub returning `[]`.
 3. **Model quality**: Current model (936K params) produces incoherent outputs. Perplexity ~135.8.
 4. **QwenProvider**: Does not support streaming (HuggingFace generate API is synchronous). Streaming support requires custom generation loop.
+5. **Qwen Armenian capability**: Qwen2.5-0.5B scores 0% on Armenian benchmarks. Limited Armenian vocabulary and instruction following.
+6. **Transformer API compatibility**: transformers 5.15.0 changed `apply_chat_template()` to return `BatchEncoding` instead of a tensor. QwenProvider now handles both formats. `torch_dtype` renamed to `dtype`.
 
 ## Provider Interface (Phase 2)
 
