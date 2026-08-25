@@ -112,15 +112,24 @@ class QwenProvider(AIProvider):
         messages: List[Dict[str, str]],
         config: GenerationConfig,
     ) -> str:
-        """Generate a response from multi-turn messages using Qwen's chat template."""
-        system_msg = {
-            "role": "system",
-            "content": (
-                "You are Voxline, a helpful bilingual AI assistant. "
-                "Reply in the user's language."
-            ),
-        }
-        full_messages = [system_msg] + messages
+        """Generate a response from multi-turn messages using Qwen's chat template.
+
+        If the first message already has role='system', the caller's
+        system instruction is used as-is.  Otherwise the built-in
+        default is prepended.
+        """
+        has_system = messages and messages[0].get("role") == "system"
+        if has_system:
+            full_messages = list(messages)
+        else:
+            system_msg = {
+                "role": "system",
+                "content": (
+                    "You are Voxline, a helpful bilingual AI assistant. "
+                    "Reply in the user's language."
+                ),
+            }
+            full_messages = [system_msg] + list(messages)
         return self._generate_chat(full_messages, config)
 
     def _generate_chat(self, messages: List[Dict[str, str]], config: GenerationConfig) -> str:

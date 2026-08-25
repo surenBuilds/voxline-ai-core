@@ -27,6 +27,7 @@ from src.errors import (
     ProviderError,
     VoxlineError,
 )
+from src.language import Language, LanguagePolicy, detect_language
 from src.memory.memory import MemoryStore
 from src.providers.base import AIProvider, GenerationConfig
 
@@ -78,6 +79,8 @@ class ChatAssistant:
         "remember", "note", "important", "don't forget",
         "save", "always", "never forget",
     })
+
+    _MAX_LANGUAGE_RETRIES = 1
 
     def __init__(
         self,
@@ -171,15 +174,36 @@ class ChatAssistant:
         message: str,
         persist_memory: Optional[bool],
     ) -> AssistantResponse:
+        user_lang = detect_language(message)
+        lang_instruction = LanguagePolicy.get_system_instruction(user_lang)
+        lang_temp = LanguagePolicy.get_temperature(user_lang) or self.temperature
+
         ctx = self.context_builder.build(
             session=session,
             user_message=message,
+            language_instruction=lang_instruction,
         )
-        text = self._call_provider(ctx)
+        text = self._call_provider(ctx, temperature=lang_temp)
+
+        retry_count = 0
+        if LanguagePolicy.should_retry(user_lang, detect_language(text)):
+            logger.info("Language retry triggered (user=%s, got=%s)", user_lang.value, detect_language(text).value)
+            retry_instruction = LanguagePolicy.get_retry_instruction(user_lang)
+            retry_ctx = self.context_builder.build(
+                session=session,
+                user_message=message,
+                language_instruction=f"{lang_instruction}\n\n{retry_instruction}",
+            )
+            text = self._call_provider(retry_ctx, temperature=lang_temp)
+            retry_count = 1
+
         session.add_message("user", message)
         session.add_message("assistant", text)
         self._maybe_persist_memory(message, persist_memory)
-        return self._make_response(session, text)
+        resp = self._make_response(session, text)
+        resp.metadata["language"] = user_lang.value
+        resp.metadata["language_retries"] = retry_count
+        return resp
 
     # ------------------------------------------------------------------
     # Business mode
@@ -191,13 +215,18 @@ class ChatAssistant:
         message: str,
         persist_memory: Optional[bool],
     ) -> AssistantResponse:
+        user_lang = detect_language(message)
+        lang_instruction = LanguagePolicy.get_system_instruction(user_lang)
+        lang_temp = LanguagePolicy.get_temperature(user_lang) or self.temperature
+
         biz_ctx = session.metadata.get("business_context", "")
         ctx = self.context_builder.build(
             session=session,
             user_message=message,
             business_context=biz_ctx,
+            language_instruction=lang_instruction,
         )
-        text = self._call_provider(ctx)
+        text = self._call_provider(ctx, temperature=lang_temp)
         session.add_message("user", message)
         session.add_message("assistant", text)
         self._maybe_persist_memory(message, persist_memory)
@@ -213,13 +242,18 @@ class ChatAssistant:
         message: str,
         persist_memory: Optional[bool],
     ) -> AssistantResponse:
+        user_lang = detect_language(message)
+        lang_instruction = LanguagePolicy.get_system_instruction(user_lang)
+        lang_temp = LanguagePolicy.get_temperature(user_lang) or self.temperature
+
         workspace = session.metadata.get("workspace_path", "")
         ctx = self.context_builder.build(
             session=session,
             user_message=message,
             workspace_path=workspace,
+            language_instruction=lang_instruction,
         )
-        text = self._call_provider(ctx)
+        text = self._call_provider(ctx, temperature=lang_temp)
         session.add_message("user", message)
         session.add_message("assistant", text)
         return self._make_response(session, text)
@@ -228,11 +262,11 @@ class ChatAssistant:
     # Provider interaction
     # ------------------------------------------------------------------
 
-    def _call_provider(self, ctx: Context) -> str:
+    def _call_provider(self, ctx: Context, temperature: Optional[float] = None) -> str:
         """Call the provider with the context messages."""
         config = GenerationConfig(
             max_tokens=self.max_new_tokens,
-            temperature=self.temperature,
+            temperature=temperature if temperature is not None else self.temperature,
         )
         try:
             import asyncio

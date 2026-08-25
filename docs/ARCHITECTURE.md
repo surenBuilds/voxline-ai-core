@@ -66,6 +66,7 @@ src/
   business/       BusinessAgent, BusinessPlan, BusinessPlanStep
   api/            FastAPI server, ConversationalAI
   assistant/      ChatAssistant, BusinessAssistant, ContextBuilder, Session, SessionManager (Phase 7)
+  language.py     Language detection, LanguagePolicy — single source of truth for Armenian/English handling
   evaluation/     Schemas, metrics, datasets, runner, reports, comparison, normalize
   errors.py       Centralized error hierarchy (VoxlineError base)
   checkpoint.py   CheckpointLoader (save/load with config validation)
@@ -106,6 +107,8 @@ src/
 
 | Component | Location | Purpose |
 |-----------|----------|---------|
+| LanguagePolicy | `src/language.py` | Single source of truth for language handling — detect, instruct, retry |
+| detect_language | `src/language.py` | Unicode-based Armenian/English detection (>=30% Armenian chars = Armenian) |
 | MemoryStore | `src/memory/memory.py` | SQLite-backed memory with search, typed memories, conversation history |
 | ToolRegistry | `src/tools/tools.py` | Registered tools with schemas, three-phase API (validate/authorize/execute) |
 | PathSecurity | `src/tools/security.py` | Workspace boundary enforcement via `Path.is_relative_to()` — no startswith |

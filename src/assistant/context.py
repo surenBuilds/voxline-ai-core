@@ -134,6 +134,7 @@ class ContextBuilder:
         mode_instructions: Optional[str] = None,
         business_context: Optional[str] = None,
         workspace_path: Optional[str] = None,
+        language_instruction: Optional[str] = None,
     ) -> Context:
         """
         Build a Context from session state and user input.
@@ -144,6 +145,10 @@ class ContextBuilder:
             mode_instructions: Override for mode-specific instructions.
             business_context: Additional business domain context.
             workspace_path: Workspace root path (coding mode).
+            language_instruction: Language-aware system instruction.
+                When provided it is placed as the first system message
+                in the list so the provider uses it instead of its own
+                default.
 
         Returns:
             Context with ordered messages and metadata.
@@ -180,6 +185,7 @@ class ContextBuilder:
             business_context=biz_ctx,
             workspace_context=ws_ctx,
             user_message=user_message,
+            language_instruction=language_instruction,
         )
 
         total_chars = sum(len(m.get("content", "")) for m in messages)
@@ -282,14 +288,22 @@ class ContextBuilder:
         business_context: str,
         workspace_context: str,
         user_message: str,
+        language_instruction: Optional[str] = None,
     ) -> List[Dict[str, str]]:
         """
         Assemble the final ordered message list.
 
         Order (for provider.chat()):
-          [memory] [mode instruction] [history...] [biz ctx] [ws ctx] [user msg]
+          [language system] [memory] [mode instruction] [history...] [biz ctx] [ws ctx] [user msg]
         """
         messages: List[Dict[str, str]] = []
+
+        # Language-aware system instruction (FIRST — provider respects this)
+        if language_instruction:
+            messages.append({
+                "role": "system",
+                "content": language_instruction,
+            })
 
         # Memory context (single message if non-empty)
         if memory_section:

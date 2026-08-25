@@ -36,6 +36,7 @@ from src.errors import (
 )
 from src.memory.memory import MemoryStore
 from src.providers.base import AIProvider, GenerationConfig
+from src.language import detect_language, LanguagePolicy
 
 logger = logging.getLogger(__name__)
 
@@ -409,23 +410,14 @@ class BusinessAssistant:
     ) -> BusinessResponse:
         """
         Process a structured business request.
-
-        Args:
-            session_id: Session to use (must exist, must be BUSINESS mode).
-            request: Structured business request.
-            persist_memory: Force memory persistence. None = auto-detect.
-
-        Returns:
-            BusinessResponse with text, structured data, and metadata.
-
-        Raises:
-            SessionNotFoundError: Session does not exist.
-            ValueError: Invalid request.
-            ProviderError: Provider failed to generate.
         """
         self._validate_request(request)
         session = self._get_session(session_id)
         self._assert_business_mode(session)
+
+        user_lang = detect_language(request.user_request)
+        lang_instruction = LanguagePolicy.get_system_instruction(user_lang)
+        lang_temp = LanguagePolicy.get_temperature(user_lang)
 
         biz_ctx_str = self._build_business_context_string(
             request.business_context
@@ -441,9 +433,26 @@ class BusinessAssistant:
                 _BUSINESS_SYSTEM_INSTRUCTION + "\n\n" + task_instruction
             ),
             business_context=biz_ctx_str if biz_ctx_str else None,
+            language_instruction=lang_instruction,
         )
 
-        text = self._call_provider(ctx)
+        text = self._call_provider(ctx, temperature=lang_temp)
+
+        retry_count = 0
+        if LanguagePolicy.should_retry(user_lang, detect_language(text)):
+            logger.info("Language retry in business (user=%s)", user_lang.value)
+            retry_instruction = LanguagePolicy.get_retry_instruction(user_lang)
+            retry_ctx = self._context_builder.build(
+                session=session,
+                user_message=request.user_request,
+                mode_instructions=(
+                    _BUSINESS_SYSTEM_INSTRUCTION + "\n\n" + task_instruction
+                ),
+                business_context=biz_ctx_str if biz_ctx_str else None,
+                language_instruction=f"{lang_instruction}\n\n{retry_instruction}",
+            )
+            text = self._call_provider(retry_ctx, temperature=lang_temp)
+            retry_count = 1
 
         session.add_message("user", request.user_request)
         session.add_message("assistant", text)
@@ -462,6 +471,8 @@ class BusinessAssistant:
             metadata={
                 "history_length": len(session.history),
                 "has_business_context": request.business_context is not None,
+                "language": user_lang.value,
+                "language_retries": retry_count,
             },
         )
 
@@ -516,10 +527,10 @@ class BusinessAssistant:
     # Provider interaction
     # ------------------------------------------------------------------
 
-    def _call_provider(self, ctx: Context) -> str:
+    def _call_provider(self, ctx: Context, temperature: Optional[float] = None) -> str:
         config = GenerationConfig(
             max_tokens=self.max_new_tokens,
-            temperature=self.temperature,
+            temperature=temperature if temperature is not None else self.temperature,
         )
         try:
             import asyncio

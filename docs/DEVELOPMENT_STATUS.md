@@ -21,8 +21,10 @@ Architecture is ahead of model intelligence. All components functional but model
 | pytest (test_assistant_business.py) | PASS | 55/55 |
 | pytest (test_tools_security.py) | PASS | 71/71 (2 skipped: Windows symlink) |
 | pytest (test_server.py) | PASS | 18/18 |
+| pytest (test_language.py) | PASS | 29/29 |
+| pytest (test_armenian_benchmark.py) | PASS | 51/51 (15 skipped: live model) |
 | Smoke tests (baseline_smoke.py) | PASS | 14/14 |
-| Total | **PASS** | **445/445** |
+| Total | **PASS** | **525/525 (17 skipped)** |
 
 ## Component Status
 
