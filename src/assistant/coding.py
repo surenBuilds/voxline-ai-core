@@ -140,6 +140,10 @@ class CodingTask:
     status: TaskStatus = TaskStatus.PENDING
     created_at: float = field(default_factory=time.time)
     repository: Optional[RepositoryContext] = None
+    repository_owner: str = ""
+    repository_name: str = ""
+    repository_branch: str = "main"
+    workspace_path: str = ""
 
 
 @dataclass
@@ -286,6 +290,274 @@ class CodingAgent:
         except Exception as exc:
             logger.error("Unexpected error: %s", exc, exc_info=True)
             return self._failure_result(task, f"Unexpected error: {exc}")
+
+    def execute_with_repository(
+        self,
+        user_request: str,
+        repository_owner: str = "",
+        repository_name: str = "",
+        repository_branch: str = "main",
+        session_id: Optional[str] = None,
+        constraints: Optional[List[str]] = None,
+        create_pr: bool = False,
+        deploy_preview: bool = False,
+    ) -> CodingResult:
+        """Execute a coding task with full repository workflow.
+
+        Phases:
+          A. Discovery — inspect GitHub repository
+          B. Workspace — clone, create feature branch
+          C. Analysis — inspect code, generate plan
+          D. Implementation — modify files, run tests
+          E. Review — git diff, validate changes
+          F. GitHub — commit, push, create PR
+          G. Vercel — deploy preview
+          H. Report — structured result
+        """
+        task = self._create_task(user_request, session_id, constraints)
+        task.repository_owner = repository_owner
+        task.repository_name = repository_name
+        task.repository_branch = repository_branch
+
+        if repository_owner and repository_name:
+            task.repository = RepositoryContext(
+                owner=repository_owner,
+                name=repository_name,
+                branch=repository_branch,
+            )
+
+        feature_branch = f"voxline/{task.task_id}"
+
+        try:
+            # Phase A: Discovery
+            repo_info = self._phase_discovery(task)
+            if repo_info:
+                task.project_context = repo_info
+
+            # Phase B: Workspace
+            workspace_ok = self._phase_workspace(task, feature_branch)
+            if not workspace_ok:
+                return self._failure_result(task, "Workspace setup failed")
+
+            # Phase C: Analysis
+            task.status = TaskStatus.ANALYZING
+            plan = self._generate_plan(task)
+
+            # Phase D: Implementation
+            task.status = TaskStatus.EXECUTING
+            result = self._execute_plan(task, plan)
+
+            if not result.success and not result.files_modified:
+                return result
+
+            # Phase E: Review
+            diff_info = self._phase_review(task)
+            result.changes = diff_info.get("changes", result.changes)
+
+            # Phase F: GitHub
+            if create_pr and repository_owner and repository_name:
+                pr_info = self._phase_github(task, feature_branch, repository_branch)
+                if pr_info:
+                    result.pull_request = pr_info
+
+            # Phase G: Vercel
+            if deploy_preview and result.pull_request:
+                deploy_info = self._phase_vercel(task)
+                if deploy_info:
+                    result.deployment = deploy_info
+
+            # Phase H: Report
+            if task.repository:
+                result.summary = (
+                    f"Repository: {repository_owner}/{repository_name} | "
+                    f"Branch: {feature_branch} | "
+                    f"{result.summary}"
+                )
+
+            return result
+
+        except AgentPlanError as exc:
+            return self._failure_result(task, f"Plan generation failed: {exc}")
+        except AgentTimeoutError as exc:
+            return self._failure_result(task, f"Execution timed out: {exc}")
+        except AgentMaxIterationsError as exc:
+            return self._failure_result(task, f"Max fix iterations exceeded: {exc}")
+        except Exception as exc:
+            logger.error("Repository workflow error: %s", exc, exc_info=True)
+            return self._failure_result(task, f"Workflow error: {exc}")
+
+    # ------------------------------------------------------------------
+    # Repository workflow phases
+    # ------------------------------------------------------------------
+
+    def _phase_discovery(self, task: CodingTask) -> str:
+        """Phase A: Inspect GitHub repository metadata."""
+        if not task.repository_owner or not task.repository_name:
+            return self._inspect_project(task)
+
+        tool = self.tool_registry.get_tool("github_read_repository")
+        if tool is None:
+            logger.info("GitHub tools not available — using local workspace")
+            return self._inspect_project(task)
+
+        result = self.tool_registry.execute(
+            "github_read_repository",
+            owner=task.repository_owner,
+            repo=task.repository_name,
+        )
+        if isinstance(result, dict) and not result.get("error"):
+            if task.repository:
+                task.repository.default_branch = result.get("default_branch", "main")
+                task.repository.description = result.get("description", "")
+                task.repository.clone_url = result.get("clone_url", "")
+            return (
+                f"Repository: {result.get('full_name', '')}\n"
+                f"Default branch: {result.get('default_branch', 'main')}\n"
+                f"Description: {result.get('description', '')}\n"
+                f"Stars: {result.get('stars', 0)} | "
+                f"Open issues: {result.get('open_issues', 0)}"
+            )
+        return self._inspect_project(task)
+
+    def _phase_workspace(self, task: CodingTask, feature_branch: str) -> bool:
+        """Phase B: Clone repo and create feature branch."""
+        if not task.repository_owner or not task.repository_name:
+            return True
+
+        clone_tool = self.tool_registry.get_tool("workspace_clone")
+        if clone_tool is None:
+            logger.warning("Workspace tools not available")
+            return False
+
+        clone_url = task.repository.clone_url if task.repository else ""
+        if not clone_url:
+            clone_url = (
+                f"https://github.com/{task.repository_owner}/"
+                f"{task.repository_name}.git"
+            )
+
+        result = self.tool_registry.execute(
+            "workspace_clone",
+            owner=task.repository_owner,
+            repo=task.repository_name,
+            clone_url=clone_url,
+            branch=task.repository_branch,
+        )
+        if isinstance(result, dict) and result.get("error"):
+            logger.warning("Clone failed: %s", result["error"])
+            return False
+
+        repo_dir = result.get("repo_dir", "") if isinstance(result, dict) else ""
+        if repo_dir:
+            self.workspace = repo_dir
+            self.tool_registry = self.tool_registry.__class__(
+                workspace_root=repo_dir,
+                audit_log=self.tool_registry.audit_log,
+            )
+            self._path_security = PathSecurity(repo_dir)
+
+        return True
+
+    def _phase_review(self, task: CodingTask) -> Dict[str, Any]:
+        """Phase E: Generate and inspect git diff."""
+        diff_tool = self.tool_registry.get_tool("workspace_diff")
+        if diff_tool is None:
+            return {}
+
+        result = self.tool_registry.execute(
+            "workspace_diff",
+            owner=task.repository_owner,
+            repo=task.repository_name,
+            branch=task.repository_branch,
+        )
+        if isinstance(result, dict) and not result.get("error"):
+            diff_text = result.get("diff", "")
+            changes = [
+                line for line in diff_text.split("\n")
+                if line.startswith("+") and not line.startswith("+++")
+            ]
+            return {"changes": changes[:50], "diff": diff_text}
+        return {}
+
+    def _phase_github(
+        self,
+        task: CodingTask,
+        feature_branch: str,
+        base_branch: str,
+    ) -> Optional[PullRequestInfo]:
+        """Phase F: Commit, push, create pull request."""
+        if not task.repository_owner or not task.repository_name:
+            return None
+
+        commit_tool = self.tool_registry.get_tool("workspace_diff")
+        if commit_tool is None:
+            return None
+
+        commit_result = self.tool_registry.execute(
+            "workspace_diff",
+            owner=task.repository_owner,
+            repo=task.repository_name,
+        )
+        diff_text = ""
+        if isinstance(commit_result, dict):
+            diff_text = commit_result.get("diff", "")
+
+        if not diff_text.strip():
+            return None
+
+        pr_title = f"Voxline: {task.user_request[:80]}"
+        pr_body = (
+            f"Automated changes by Voxline AI CodingAgent.\n\n"
+            f"Task: {task.user_request}\n"
+            f"Task ID: {task.task_id}"
+        )
+
+        pr_tool = self.tool_registry.get_tool("github_create_pull_request")
+        if pr_tool is None:
+            return None
+
+        result = self.tool_registry.execute(
+            "github_create_pull_request",
+            owner=task.repository_owner,
+            repo=task.repository_name,
+            title=pr_title,
+            head=feature_branch,
+            base=base_branch,
+            body=pr_body,
+        )
+        if isinstance(result, dict) and not result.get("error"):
+            return PullRequestInfo(
+                number=result.get("number", 0),
+                title=result.get("title", ""),
+                url=result.get("url", ""),
+                head_branch=feature_branch,
+                base_branch=base_branch,
+                state=result.get("state", "open"),
+            )
+        return None
+
+    def _phase_vercel(self, task: CodingTask) -> Optional[DeploymentInfo]:
+        """Phase G: Create Vercel preview deployment."""
+        deploy_tool = self.tool_registry.get_tool("vercel_create_deployment")
+        if deploy_tool is None:
+            return None
+
+        result = self.tool_registry.execute(
+            "vercel_create_deployment",
+            project_id=task.repository_name,
+            name=f"pr-{task.task_id}",
+            target="preview",
+            git_branch=task.repository_branch,
+            git_repo=f"{task.repository_owner}/{task.repository_name}",
+        )
+        if isinstance(result, dict) and not result.get("error"):
+            return DeploymentInfo(
+                id=result.get("id", ""),
+                url=result.get("url", ""),
+                environment=result.get("environment", "preview"),
+                state=result.get("state", "building"),
+            )
+        return None
 
     # ------------------------------------------------------------------
     # Task creation
@@ -452,17 +724,35 @@ class CodingAgent:
             if content and not content.startswith("{error"):
                 file_context += f"\n--- {fp} ---\n{content[:2000]}\n"
 
+        tools_context = ""
+        try:
+            available = self.tool_registry.available_tools()
+            for cat, tools in available.items():
+                tool_names = [t["name"] for t in tools]
+                tools_context += f"\n{cat}: {', '.join(tool_names)}"
+        except Exception:
+            pass
+
+        repo_context = ""
+        if task.repository:
+            repo_context = (
+                f"\nRepository: {task.repository.owner}/{task.repository.name}\n"
+                f"Branch: {task.repository.branch}\n"
+            )
+
         return (
             f"{lang_instruction}"
             f"You are a software engineering assistant. Generate an implementation plan.\n"
             f"Workspace: {task.workspace}\n"
             f"User request: {task.user_request}\n"
             f"Constraints: {', '.join(task.constraints) if task.constraints else 'None'}\n"
+            f"{repo_context}"
             f"Project context:\n{task.project_context}\n"
             f"Relevant files:\n{file_context}\n"
+            f"Available tools:{tools_context}\n"
             f"Respond with ONLY a JSON object:\n"
             f'{{"objective":"...","understanding":"...","relevant_files":["..."],'
-            f'"steps":[{{"step_number":1,"description":"...","action_type":"read|write|command",'
+            f'"steps":[{{"step_number":1,"description":"...","action_type":"read|write|command|github_*|vercel_*|workspace_*",'
             f'"target_files":["..."],"command":""}}],'
             f'"risks":["..."],"validation_commands":["..."],"requires_approval":false}}\n'
             f"Maximum {self.max_plan_steps} steps."
@@ -569,23 +859,25 @@ class CodingAgent:
         )
 
     def _execute_step(self, task: CodingTask, step: CodingStep) -> CodingAction:
-        try:
-            action_type = ActionType(step.action_type)
-        except ValueError:
-            action = CodingAction(
-                action_id=f"act_{uuid.uuid4().hex[:8]}",
-                action_type=ActionType.READ,
-                target=step.target_files[0] if step.target_files else "",
-            )
-            action.status = ActionStatus.FAILED
-            action.error = f"Unknown action type: {step.action_type}"
-            return action
+        action_type_str = step.action_type
 
         action = CodingAction(
             action_id=f"act_{uuid.uuid4().hex[:8]}",
-            action_type=action_type,
+            action_type=ActionType.READ,
             target=step.target_files[0] if step.target_files else "",
         )
+
+        if action_type_str.startswith("github_") or action_type_str.startswith("vercel_") or action_type_str.startswith("workspace_"):
+            return self._exec_integration_tool(action, step, task, action_type_str)
+
+        try:
+            action_type = ActionType(action_type_str)
+        except ValueError:
+            action.status = ActionStatus.FAILED
+            action.error = f"Unknown action type: {action_type_str}"
+            return action
+
+        action.action_type = action_type
 
         try:
             if action.action_type == ActionType.READ:
@@ -598,7 +890,7 @@ class CodingAgent:
                 return self._exec_search(action, step)
             else:
                 action.status = ActionStatus.FAILED
-                action.error = f"Unknown action type: {step.action_type}"
+                action.error = f"Unknown action type: {action_type_str}"
                 return action
         except Exception as exc:
             action.status = ActionStatus.FAILED
@@ -709,6 +1001,64 @@ class CodingAgent:
                 break
         action.content = json.dumps(matches)
         action.status = ActionStatus.EXECUTED
+        return action
+
+    def _exec_integration_tool(
+        self,
+        action: CodingAction,
+        step: CodingStep,
+        task: CodingTask,
+        tool_name: str,
+    ) -> CodingAction:
+        """Execute an integration tool (github_*, vercel_*, workspace_*)."""
+        tool = self.tool_registry.get_tool(tool_name)
+        if tool is None:
+            action.status = ActionStatus.FAILED
+            action.error = f"Tool not available: {tool_name}"
+            return action
+
+        kwargs = {}
+        if step.target_files:
+            kwargs["path"] = step.target_files[0]
+        if step.command:
+            kwargs["command"] = step.command
+
+        if task.repository_owner:
+            kwargs.setdefault("owner", task.repository_owner)
+        if task.repository_name:
+            kwargs.setdefault("repo", task.repository_name)
+        if task.repository_branch:
+            kwargs.setdefault("branch", task.repository_branch)
+
+        for key in ("owner", "repo", "path", "ref", "sha", "branch",
+                     "title", "head", "base", "body", "state",
+                     "project_id", "name", "target", "git_branch", "git_repo",
+                     "clone_url", "test_command", "per_page",
+                     "message", "content"):
+            if key in kwargs:
+                continue
+
+        val = self.tool_registry.validate_request(tool_name, **kwargs)
+        if val.decision != PermissionDecision.ALLOWED:
+            action.status = ActionStatus.DENIED
+            action.error = val.reason
+            return action
+
+        result = self.tool_registry.execute(
+            tool_name,
+            session_id=task.session_id,
+            **kwargs,
+        )
+
+        action.command = tool_name
+        if isinstance(result, dict) and result.get("error"):
+            action.status = ActionStatus.FAILED
+            action.error = result["error"]
+            action.result = result
+        else:
+            action.content = json.dumps(result) if not isinstance(result, str) else result
+            action.status = ActionStatus.EXECUTED
+            action.result = result if isinstance(result, dict) else {"output": result}
         return action
 
     def _generate_file_content(self, step: CodingStep, task: CodingTask) -> str:

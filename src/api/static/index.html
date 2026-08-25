@@ -230,6 +230,50 @@ header h1 {
 .empty-state .icon { font-size: 48px; opacity: 0.3; }
 .empty-state h2 { font-size: 18px; font-weight: 500; }
 .empty-state p { font-size: 13px; }
+
+.coding-options {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 20px;
+  display: none;
+  gap: 10px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.coding-options.visible { display: flex; }
+
+.coding-options label {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.coding-options input {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 4px 8px;
+  font-size: 12px;
+  width: 140px;
+  outline: none;
+}
+
+.coding-options input:focus { border-color: var(--accent); }
+
+.coding-options input.wide { width: 220px; }
+
+.coding-options .opt-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.coding-options input[type="checkbox"] {
+  width: auto;
+  accent-color: var(--accent);
+}
 </style>
 </head>
 <body>
@@ -245,7 +289,7 @@ header h1 {
 <div class="mode-bar">
   <button class="mode-btn active" data-mode="chat" onclick="switchMode('chat')">Chat</button>
   <button class="mode-btn" data-mode="business" onclick="switchMode('business')">Business</button>
-  <button class="mode-btn disabled" data-mode="coding" title="Coming soon">Coding (Soon)</button>
+  <button class="mode-btn" data-mode="coding" onclick="switchMode('coding')">Coding</button>
 </div>
 
 <div class="chat-container" id="chat">
@@ -253,6 +297,26 @@ header h1 {
     <div class="icon">V</div>
     <h2>Voxline AI</h2>
     <p>Select a mode and start chatting</p>
+  </div>
+</div>
+
+<div class="coding-options" id="coding-options">
+  <div class="opt-group">
+    <label>Repository:</label>
+    <input type="text" id="repo-owner" placeholder="owner">
+    <input type="text" id="repo-name" placeholder="repository" class="wide">
+  </div>
+  <div class="opt-group">
+    <label>Branch:</label>
+    <input type="text" id="repo-branch" placeholder="main" value="main">
+  </div>
+  <div class="opt-group">
+    <input type="checkbox" id="opt-pr">
+    <label for="opt-pr">Create PR</label>
+  </div>
+  <div class="opt-group">
+    <input type="checkbox" id="opt-deploy">
+    <label for="opt-deploy">Deploy preview</label>
   </div>
 </div>
 
@@ -297,16 +361,23 @@ async function loadHealth() {
 }
 
 function switchMode(mode) {
-  if (mode === 'coding') return;
   currentMode = mode;
   document.querySelectorAll('.mode-btn').forEach(b => {
     if (b.dataset.mode === mode) b.classList.add('active');
     else b.classList.remove('active');
   });
   const input = document.getElementById('input');
-  input.placeholder = mode === 'business'
-    ? 'Ask a business question...'
-    : 'Type a message...';
+  const codingOpts = document.getElementById('coding-options');
+  if (mode === 'business') {
+    input.placeholder = 'Ask a business question...';
+    codingOpts.classList.remove('visible');
+  } else if (mode === 'coding') {
+    input.placeholder = 'Describe the coding task...';
+    codingOpts.classList.add('visible');
+  } else {
+    input.placeholder = 'Type a message...';
+    codingOpts.classList.remove('visible');
+  }
   input.focus();
 }
 
@@ -362,6 +433,16 @@ async function send() {
     if (currentMode === 'business') {
       url = '/api/business';
       body = { message: msg };
+    } else if (currentMode === 'coding') {
+      url = '/api/coding';
+      body = {
+        message: msg,
+        repository_owner: document.getElementById('repo-owner').value.trim(),
+        repository_name: document.getElementById('repo-name').value.trim(),
+        repository_branch: document.getElementById('repo-branch').value.trim() || 'main',
+        create_pr: document.getElementById('opt-pr').checked,
+        deploy_preview: document.getElementById('opt-deploy').checked,
+      };
     } else {
       url = '/api/chat';
       body = { message: msg };
@@ -380,7 +461,17 @@ async function send() {
       addMessage('error', d.detail || d.error || 'Request failed', true);
     } else {
       const text = d.response || d.text || d.detail || '';
-      addMessage('assistant', text);
+      let display = text;
+      if (currentMode === 'coding' && d.files_modified && d.files_modified.length) {
+        display += '\n\nFiles modified: ' + d.files_modified.join(', ');
+      }
+      if (currentMode === 'coding' && d.pull_request) {
+        display += '\nPR: ' + d.pull_request.url;
+      }
+      if (currentMode === 'coding' && d.deployment) {
+        display += '\nPreview: ' + d.deployment.url;
+      }
+      addMessage('assistant', display);
     }
   } catch(e) {
     hideTyping();

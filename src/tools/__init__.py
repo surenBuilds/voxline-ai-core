@@ -12,11 +12,12 @@ from .security import (
     ToolPermissionResult,
     ToolSecurityProfile,
 )
+from .bootstrap import build_tool_registry
 
 __all__ = [
     "ToolRegistry", "Tool", "Calculator", "FileReadTool", "FileWriteTool",
     "DirectoryListTool", "CommandExecutor", "ToolSchema",
     "PathSecurity", "FileSizeGuard", "CommandPolicy", "CommandValidator",
     "AuditLog", "AuditEntry", "PermissionDecision", "ToolPermissionResult",
-    "ToolSecurityProfile",
+    "ToolSecurityProfile", "build_tool_registry",
 ]

@@ -535,6 +535,29 @@ class ToolRegistry:
             }
         return tools_info
 
+    def available_tools(self) -> Dict[str, List[Dict[str, str]]]:
+        """Return categorized tool summaries safe for LLM context.
+
+        Never exposes credentials, security internals, or implementation details.
+        Only returns: name, category, description.
+        """
+        categories: Dict[str, List[Dict[str, str]]] = {}
+        for name, tool in self.tools.items():
+            schema = tool.get_schema()
+            if name.startswith("github_"):
+                cat = "github"
+            elif name.startswith("vercel_"):
+                cat = "vercel"
+            elif name.startswith("workspace_"):
+                cat = "workspace"
+            else:
+                cat = "core"
+            categories.setdefault(cat, []).append({
+                "name": name,
+                "description": schema.description,
+            })
+        return categories
+
     @property
     def audit_log(self) -> AuditLog:
         return self._audit

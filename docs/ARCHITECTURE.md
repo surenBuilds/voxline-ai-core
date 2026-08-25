@@ -61,6 +61,7 @@ src/
   memory/         MemoryStore (SQLite), ConversationMemory
   tools/          ToolRegistry, Calculator, FileReadTool, FileWriteTool, DirectoryListTool, CommandExecutor
   tools/security.py  PathSecurity, CommandPolicy, CommandValidator, AuditLog, ToolSecurityProfile (Phase 7 Step 7)
+  tools/bootstrap.py build_tool_registry() — conditional tool registration (Phase 7 Step 11)
   planner/        Planner, ReasoningEngine, Plan, Step, PlanStatus
   agent/          AutonomousAgent, AgentState, ExecutionLog
   business/       BusinessAgent, BusinessPlan, BusinessPlanStep
@@ -304,6 +305,46 @@ Workspace / Files / Commands / OS
 **Environment:** Subprocess inherits `PATH` but secrets (API keys, tokens, passwords) are stripped. Variables containing `SECRET`, `TOKEN`, `KEY`, `PASSWORD` are excluded.
 
 **Network access:** DENIED by default. No network tool is registered. Future capabilities (web research, APIs) will be separate, explicitly granted tools.
+
+### Tool Bootstrap + Coding Workflow (Phase 7 Step 11)
+
+```
+build_tool_registry(config)
+    ↓
+Core tools (always): calculator, file_read, file_write, directory_list, execute_command
+    ↓
+GitHub tools (if GITHUB_ENABLED + token): read_repository, read_file, create_branch, commit, create_pr, list_issues
+    ↓
+Vercel tools (if VERCEL_ENABLED + token): list_projects, create_deployment, get_deployment
+    ↓
+Workspace tools (if GitHub service): clone, diff, test
+    ↓
+ToolRegistry.available_tools()  →  LLM context (no tokens, no security profiles)
+```
+
+| Component | Purpose |
+|-----------|---------|
+| `build_tool_registry(config)` | Single entry point. Conditionally registers tools based on config and available credentials. Called once at server startup. |
+| `ToolRegistry.available_tools()` | Returns categorized tool summaries safe for LLM context. Excludes sensitive fields (credentials, tokens). |
+
+### CodingAgent End-to-End Workflow (Phase 7 Step 11)
+
+```
+CodingRequest (message, repository_owner, repository_name, repository_branch)
+    ↓
+execute_with_repository(task, config)
+    ↓
+Phase A: Discovery  →  Validate repository context, check integration availability
+Phase B: Workspace  →  Clone repository, checkout branch
+Phase C: Review     →  Read codebase, identify files, understand structure
+Phase D: Plan       →  LLM generates execution plan with available tools context
+Phase E: Execute    →  Three-phase tool execution (validate → authorize → execute)
+Phase F: Validate   →  Run tests, verify no regressions
+Phase G: GitHub     →  Create branch, commit changes, create PR
+Phase H: Vercel     →  Deploy preview (if enabled)
+    ↓
+CodingResult (files_modified, output, error, pull_request, deployment)
+```
 
 ## Model Specifications
 

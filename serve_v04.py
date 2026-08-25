@@ -18,20 +18,18 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 from typing import Optional
 
-from src.providers.base import AIProvider, GenerationConfig
-from src.providers.factory import ProviderFactory
+from src.providers.base import AIProvider
 from src.config.settings import VoxlineConfig, get_config
 from src.assistant.session import SessionManager, SessionMode
 from src.assistant.context import ContextBuilder
 from src.assistant.chat import ChatAssistant, AssistantResponse
 from src.assistant.business import (
-    BusinessAssistant, BusinessRequest, BusinessResponse,
-    BusinessTaskType, BusinessContext,
+    BusinessAssistant, BusinessResponse,
+    BusinessTaskType,
 )
 from src.memory.memory import MemoryStore
 
@@ -48,6 +46,7 @@ app = FastAPI(title="Voxline AI v0.4", version="0.4.0")
 _provider: Optional[AIProvider] = None
 _chat_assistant: Optional[ChatAssistant] = None
 _business_assistant: Optional[BusinessAssistant] = None
+_coding_assistant = None
 _session_manager: Optional[SessionManager] = None
 _memory_store: Optional[MemoryStore] = None
 _provider_name: str = "qwen"
@@ -66,6 +65,16 @@ class BusinessChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=10_000)
     session_id: Optional[str] = Field(default=None, max_length=128)
     task_type: str = Field(default="general_analysis", max_length=64)
+
+
+class CodingRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=10_000)
+    session_id: Optional[str] = Field(default=None, max_length=128)
+    repository_owner: str = Field(default="", max_length=128)
+    repository_name: str = Field(default="", max_length=128)
+    repository_branch: str = Field(default="main", max_length=128)
+    create_pr: bool = Field(default=False)
+    deploy_preview: bool = Field(default=False)
 
 
 # ---------------------------------------------------------------------------
@@ -150,7 +159,8 @@ def load_provider(name: str) -> AIProvider:
 # ---------------------------------------------------------------------------
 
 def _build_assistants(provider: AIProvider) -> None:
-    global _chat_assistant, _business_assistant, _session_manager, _memory_store
+    global _chat_assistant, _business_assistant, _coding_assistant
+    global _session_manager, _memory_store
     _session_manager = SessionManager()
     _memory_store = MemoryStore("memory/voxline_web.db")
     ctx = ContextBuilder(memory_store=_memory_store, max_history=20)
@@ -171,6 +181,22 @@ def _build_assistants(provider: AIProvider) -> None:
         max_history=20,
         max_new_tokens=256,
         temperature=0.7,
+    )
+
+    from src.tools.bootstrap import build_tool_registry
+    from src.assistant.coding import CodingAgent
+    config = get_config()
+    tool_registry = build_tool_registry(config=config)
+    _coding_assistant = CodingAgent(
+        provider=provider,
+        session_manager=_session_manager,
+        context_builder=ctx,
+        memory_store=_memory_store,
+        tool_registry=tool_registry,
+        max_plan_steps=config.coding_agent_max_plan_steps,
+        max_fix_iterations=config.coding_agent_max_fix_iterations,
+        max_context_chars=config.coding_agent_max_context_chars,
+        require_approval_for_writes=config.coding_agent_require_approval_for_writes,
     )
 
 
@@ -200,6 +226,13 @@ async def health():
         }
     except Exception as exc:
         return {"status": "error", "provider": _provider.provider_id, "model": _provider.model_id, "error": str(exc)}
+
+
+@app.get("/api/tools")
+async def api_tools():
+    if _coding_assistant is None:
+        return {"tools": {}}
+    return {"tools": _coding_assistant.tool_registry.available_tools()}
 
 
 @app.post("/api/chat")
@@ -272,6 +305,83 @@ async def api_business(request: BusinessChatRequest):
         raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
 
 
+@app.post("/api/coding")
+async def api_coding(request: CodingRequest):
+    if _coding_assistant is None:
+        raise HTTPException(status_code=503, detail="Coding assistant not loaded")
+
+    session_id = request.session_id or None
+
+    try:
+        if request.repository_owner and request.repository_name:
+            result = _coding_assistant.execute_with_repository(
+                user_request=request.message,
+                repository_owner=request.repository_owner,
+                repository_name=request.repository_name,
+                repository_branch=request.repository_branch,
+                session_id=session_id,
+                create_pr=request.create_pr,
+                deploy_preview=request.deploy_preview,
+            )
+        else:
+            result = _coding_assistant.execute(
+                user_request=request.message,
+                session_id=session_id,
+            )
+
+        response_data = {
+            "response": result.summary,
+            "mode": "coding",
+            "assistant": "coding",
+            "session_id": result.task_id,
+            "success": result.success,
+            "files_modified": result.files_modified,
+            "commands_executed": result.commands_executed,
+            "test_results": result.test_results,
+            "errors": result.errors,
+            "warnings": result.warnings,
+            "iterations": result.iterations,
+        }
+        if result.pull_request:
+            response_data["pull_request"] = {
+                "number": result.pull_request.number,
+                "title": result.pull_request.title,
+                "url": result.pull_request.url,
+                "head_branch": result.pull_request.head_branch,
+                "base_branch": result.pull_request.base_branch,
+            }
+        if result.deployment:
+            response_data["deployment"] = {
+                "id": result.deployment.id,
+                "url": result.deployment.url,
+                "environment": result.deployment.environment,
+                "state": result.deployment.state,
+            }
+        return response_data
+    except Exception as exc:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
+
+
+@app.get("/api/integrations")
+async def api_integrations():
+    from src.integrations.credentials import EnvironmentCredentialProvider
+    from src.config.settings import get_config
+    config = get_config()
+    creds = EnvironmentCredentialProvider()
+    return {
+        "github": {
+            "enabled": config.github_enabled,
+            "authenticated": creds.is_available("github"),
+        },
+        "vercel": {
+            "enabled": config.vercel_enabled,
+            "authenticated": creds.is_available("vercel"),
+        },
+    }
+
+
 @app.on_event("startup")
 async def startup():
     global _provider, _provider_name
@@ -323,31 +433,13 @@ def main():
 
     import uvicorn
 
-    # Print banner after a short delay so provider info is available
     def _print_banner():
         prov = _provider
         provider_name = prov.provider_id if prov else _provider_name
         model_name = prov.model_id if prov else "loading..."
         print(BANNER.format(provider=provider_name, model=model_name, host=args.host, port=args.port))
 
-    # Schedule banner print after startup
-@app.get("/api/integrations")
-async def api_integrations():
-    from src.integrations.credentials import EnvironmentCredentialProvider
-    creds = EnvironmentCredentialProvider()
-    return {
-        "github": {
-            "enabled": True,
-            "authenticated": creds.is_available("github"),
-        },
-        "vercel": {
-            "enabled": True,
-            "authenticated": creds.is_available("vercel"),
-        },
-    }
-
-
-@app.on_event("startup")
+    @app.on_event("startup")
     async def _banner():
         _print_banner()
 
