@@ -67,6 +67,12 @@ class VoxlineConfig:
         "CODING_ALLOWED_COMMANDS": "python,pytest,pip,git",
         "CODING_MAX_FILE_SIZE_MB": "10",
         "CODING_MAX_OUTPUT_BYTES": "1048576",
+
+        # Coding Agent workflow
+        "CODING_AGENT_MAX_PLAN_STEPS": "10",
+        "CODING_AGENT_MAX_CONTEXT_CHARS": "8000",
+        "CODING_AGENT_MAX_FIX_ITERATIONS": "3",
+        "CODING_AGENT_REQUIRE_APPROVAL_FOR_WRITES": "true",
         
         # Environment
         "ENVIRONMENT": "development",  # development|staging|production
@@ -237,7 +243,23 @@ class VoxlineConfig:
     @property
     def coding_max_output_bytes(self) -> int:
         return self.get_int("CODING_MAX_OUTPUT_BYTES", 1048576)
-    
+
+    @property
+    def coding_agent_max_plan_steps(self) -> int:
+        return self.get_int("CODING_AGENT_MAX_PLAN_STEPS", 10)
+
+    @property
+    def coding_agent_max_context_chars(self) -> int:
+        return self.get_int("CODING_AGENT_MAX_CONTEXT_CHARS", 8000)
+
+    @property
+    def coding_agent_max_fix_iterations(self) -> int:
+        return self.get_int("CODING_AGENT_MAX_FIX_ITERATIONS", 3)
+
+    @property
+    def coding_agent_require_approval_for_writes(self) -> bool:
+        return self.get_bool("CODING_AGENT_REQUIRE_APPROVAL_FOR_WRITES", True)
+
     @property
     def api_host(self) -> str:
         return self.get("API_HOST")

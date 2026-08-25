@@ -22,9 +22,10 @@ Architecture is ahead of model intelligence. All components functional but model
 | pytest (test_tools_security.py) | PASS | 71/71 (2 skipped: Windows symlink) |
 | pytest (test_server.py) | PASS | 18/18 |
 | pytest (test_language.py) | PASS | 29/29 |
+| pytest (test_coding_agent.py) | PASS | 33/33 |
 | pytest (test_armenian_benchmark.py) | PASS | 51/51 (15 skipped: live model) |
 | Smoke tests (baseline_smoke.py) | PASS | 14/14 |
-| Total | **PASS** | **525/525 (17 skipped)** |
+| Total | **PASS** | **560/560 (17 skipped)** |
 
 ## Component Status
 
@@ -54,6 +55,7 @@ Architecture is ahead of model intelligence. All components functional but model
 | **CommandValidator** | **Working** | shlex parsing, cwd validation, subprocess(shell=False), timeout, output limit (Phase 7 Step 7) |
 | **AuditLog** | **Working** | Append-only audit for all tool invocations, session tracking, no secrets (Phase 7 Step 7) |
 | **FileSizeGuard** | **Working** | File size enforcement for reads and writes (Phase 7 Step 7) |
+| **CodingAgent** | **Working** | Autonomous coding agent: plan → execute → validate → fix loop. Uses AIProvider for LLM, ToolRegistry for security. (Phase 7 Step 8) |
 | **FastAPI Server** | **Working** | Provider-configurable via --provider flag (Phase 6: default=qwen) |
 | CLI chat.py | Working | Interactive chat with memory |
 | **Evaluation Schemas** | **Working** | BenchmarkCase, CaseResult, EvalReport, HumanEvalScores, EvaluationStatus |

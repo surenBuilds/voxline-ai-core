@@ -15,6 +15,18 @@ from src.assistant.business import (
     ActionItem,
     Priority,
 )
+from src.assistant.coding import (
+    CodingAgent,
+    CodingTask,
+    CodingPlan,
+    CodingStep,
+    CodingAction,
+    CodingResult,
+    TaskStatus,
+    ActionType,
+    ActionStatus,
+    IterationRecord,
+)
 
 __all__ = [
     "Session",
@@ -34,4 +46,14 @@ __all__ = [
     "Recommendation",
     "ActionItem",
     "Priority",
+    "CodingAgent",
+    "CodingTask",
+    "CodingPlan",
+    "CodingStep",
+    "CodingAction",
+    "CodingResult",
+    "TaskStatus",
+    "ActionType",
+    "ActionStatus",
+    "IterationRecord",
 ]
