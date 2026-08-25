@@ -331,7 +331,23 @@ def main():
         print(BANNER.format(provider=provider_name, model=model_name, host=args.host, port=args.port))
 
     # Schedule banner print after startup
-    @app.on_event("startup")
+@app.get("/api/integrations")
+async def api_integrations():
+    from src.integrations.credentials import EnvironmentCredentialProvider
+    creds = EnvironmentCredentialProvider()
+    return {
+        "github": {
+            "enabled": True,
+            "authenticated": creds.is_available("github"),
+        },
+        "vercel": {
+            "enabled": True,
+            "authenticated": creds.is_available("vercel"),
+        },
+    }
+
+
+@app.on_event("startup")
     async def _banner():
         _print_banner()
 

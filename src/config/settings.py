@@ -73,6 +73,22 @@ class VoxlineConfig:
         "CODING_AGENT_MAX_CONTEXT_CHARS": "8000",
         "CODING_AGENT_MAX_FIX_ITERATIONS": "3",
         "CODING_AGENT_REQUIRE_APPROVAL_FOR_WRITES": "true",
+
+        # GitHub integration
+        "GITHUB_ENABLED": "false",
+        "GITHUB_TOKEN": "",
+        "GITHUB_ALLOWED_REPOSITORIES": "",
+
+        # Vercel integration
+        "VERCEL_ENABLED": "false",
+        "VERCEL_TOKEN": "",
+        "VERCEL_ALLOWED_PROJECTS": "",
+
+        # Integration workflow
+        "AUTO_CREATE_BRANCH": "true",
+        "AUTO_CREATE_PR": "false",
+        "AUTO_PREVIEW_DEPLOY": "false",
+        "REQUIRE_PRODUCTION_APPROVAL": "true",
         
         # Environment
         "ENVIRONMENT": "development",  # development|staging|production
@@ -259,6 +275,48 @@ class VoxlineConfig:
     @property
     def coding_agent_require_approval_for_writes(self) -> bool:
         return self.get_bool("CODING_AGENT_REQUIRE_APPROVAL_FOR_WRITES", True)
+
+    @property
+    def github_enabled(self) -> bool:
+        return self.get_bool("GITHUB_ENABLED", False)
+
+    @property
+    def github_token(self) -> str:
+        return self.get("GITHUB_TOKEN", "")
+
+    @property
+    def github_allowed_repositories(self) -> list:
+        raw = self.get("GITHUB_ALLOWED_REPOSITORIES", "")
+        return [r.strip() for r in raw.split(",") if r.strip()]
+
+    @property
+    def vercel_enabled(self) -> bool:
+        return self.get_bool("VERCEL_ENABLED", False)
+
+    @property
+    def vercel_token(self) -> str:
+        return self.get("VERCEL_TOKEN", "")
+
+    @property
+    def vercel_allowed_projects(self) -> list:
+        raw = self.get("VERCEL_ALLOWED_PROJECTS", "")
+        return [p.strip() for p in raw.split(",") if p.strip()]
+
+    @property
+    def auto_create_branch(self) -> bool:
+        return self.get_bool("AUTO_CREATE_BRANCH", True)
+
+    @property
+    def auto_create_pr(self) -> bool:
+        return self.get_bool("AUTO_CREATE_PR", False)
+
+    @property
+    def auto_preview_deploy(self) -> bool:
+        return self.get_bool("AUTO_PREVIEW_DEPLOY", False)
+
+    @property
+    def require_production_approval(self) -> bool:
+        return self.get_bool("REQUIRE_PRODUCTION_APPROVAL", True)
 
     @property
     def api_host(self) -> str:

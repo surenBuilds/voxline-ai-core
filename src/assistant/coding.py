@@ -94,6 +94,41 @@ class ActionStatus(Enum):
 
 
 @dataclass
+class RepositoryContext:
+    """Safe repository information passed to the coding agent.
+
+    Never contains tokens or credentials.
+    """
+    owner: str = ""
+    name: str = ""
+    branch: str = "main"
+    clone_url: str = ""
+    default_branch: str = "main"
+    description: str = ""
+    is_private: bool = False
+
+
+@dataclass
+class PullRequestInfo:
+    """Safe PR information returned to the user."""
+    number: int = 0
+    title: str = ""
+    url: str = ""
+    head_branch: str = ""
+    base_branch: str = ""
+    state: str = ""
+
+
+@dataclass
+class DeploymentInfo:
+    """Safe deployment information returned to the user."""
+    id: str = ""
+    url: str = ""
+    environment: str = ""
+    state: str = ""
+
+
+@dataclass
 class CodingTask:
     task_id: str
     user_request: str
@@ -104,6 +139,7 @@ class CodingTask:
     language: Language = Language.UNKNOWN
     status: TaskStatus = TaskStatus.PENDING
     created_at: float = field(default_factory=time.time)
+    repository: Optional[RepositoryContext] = None
 
 
 @dataclass
@@ -163,6 +199,8 @@ class CodingResult:
     warnings: List[str] = field(default_factory=list)
     iterations: int = 0
     audit_reference: str = ""
+    pull_request: Optional[PullRequestInfo] = None
+    deployment: Optional[DeploymentInfo] = None
 
 
 # ---------------------------------------------------------------------------

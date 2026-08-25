@@ -23,9 +23,11 @@ Architecture is ahead of model intelligence. All components functional but model
 | pytest (test_server.py) | PASS | 18/18 |
 | pytest (test_language.py) | PASS | 29/29 |
 | pytest (test_coding_agent.py) | PASS | 33/33 |
+| pytest (test_github_integration.py) | PASS | 40/40 |
+| pytest (test_vercel_integration.py) | PASS | 25/25 |
 | pytest (test_armenian_benchmark.py) | PASS | 51/51 (15 skipped: live model) |
 | Smoke tests (baseline_smoke.py) | PASS | 14/14 |
-| Total | **PASS** | **560/560 (17 skipped)** |
+| Total | **PASS** | **625/625 (17 skipped)** |
 
 ## Component Status
 
@@ -56,6 +58,9 @@ Architecture is ahead of model intelligence. All components functional but model
 | **AuditLog** | **Working** | Append-only audit for all tool invocations, session tracking, no secrets (Phase 7 Step 7) |
 | **FileSizeGuard** | **Working** | File size enforcement for reads and writes (Phase 7 Step 7) |
 | **CodingAgent** | **Working** | Autonomous coding agent: plan → execute → validate → fix loop. Uses AIProvider for LLM, ToolRegistry for security. (Phase 7 Step 8) |
+| **GitHub Integration** | **Working** | Client, service, permission policy (READ/WRITE/DESTRUCTIVE), RepositoryWorkspace, tools. (Phase 7 Step 10) |
+| **Vercel Integration** | **Working** | Client, service, permission policy (PREVIEW/PRODUCTION), deployment tools. (Phase 7 Step 10) |
+| **CredentialProvider** | **Working** | Environment-based credential management with redaction. Tokens never exposed to LLM. (Phase 7 Step 10) |
 | **FastAPI Server** | **Working** | Provider-configurable via --provider flag (Phase 6: default=qwen) |
 | CLI chat.py | Working | Interactive chat with memory |
 | **Evaluation Schemas** | **Working** | BenchmarkCase, CaseResult, EvalReport, HumanEvalScores, EvaluationStatus |

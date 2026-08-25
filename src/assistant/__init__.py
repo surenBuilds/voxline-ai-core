@@ -26,6 +26,9 @@ from src.assistant.coding import (
     ActionType,
     ActionStatus,
     IterationRecord,
+    RepositoryContext,
+    PullRequestInfo,
+    DeploymentInfo,
 )
 
 __all__ = [
@@ -56,4 +59,7 @@ __all__ = [
     "ActionType",
     "ActionStatus",
     "IterationRecord",
+    "RepositoryContext",
+    "PullRequestInfo",
+    "DeploymentInfo",
 ]

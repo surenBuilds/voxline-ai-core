@@ -158,3 +158,44 @@ class AgentPlanError(CodingAgentError):
 
 class CommandDeniedError(ToolError):
     """Command not in the allowed command list."""
+
+
+# Integration errors
+class IntegrationError(VoxlineError):
+    """Base integration error."""
+
+
+class GitHubError(IntegrationError):
+    """Base GitHub integration error."""
+
+
+class GitHubAuthenticationError(GitHubError):
+    """GitHub authentication failed."""
+
+
+class GitHubRepositoryNotFoundError(GitHubError):
+    """GitHub repository not found."""
+
+
+class GitHubBranchConflictError(GitHubError):
+    """GitHub branch already exists or conflicts."""
+
+
+class GitHubOperationDeniedError(GitHubError):
+    """GitHub operation denied by permission policy."""
+
+
+class VercelError(IntegrationError):
+    """Base Vercel integration error."""
+
+
+class VercelAuthenticationError(VercelError):
+    """Vercel authentication failed."""
+
+
+class VercelDeploymentError(VercelError):
+    """Vercel deployment failed."""
+
+
+class VercelProductionApprovalRequiredError(VercelError):
+    """Production deployment requires explicit approval."""
