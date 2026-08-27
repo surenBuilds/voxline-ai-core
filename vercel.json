@@ -1,5 +1,7 @@
 {
   "version": 2,
+  "framework": null,
+  "buildCommand": null,
   "functions": {
     "api/index.py": {
       "maxDuration": 120
