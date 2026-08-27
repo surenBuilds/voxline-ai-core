@@ -274,6 +274,74 @@ header h1 {
   width: auto;
   accent-color: var(--accent);
 }
+
+.progress-bar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 20px;
+  display: none;
+  flex-shrink: 0;
+  gap: 4px;
+  align-items: center;
+}
+
+.progress-bar.visible { display: flex; }
+
+.progress-step {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--surface2);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  transition: all 0.2s;
+}
+
+.progress-step.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.progress-step.done {
+  background: var(--surface2);
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.progress-step.error {
+  background: var(--surface2);
+  border-color: var(--error-text);
+  color: var(--error-text);
+}
+
+.result-details {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: var(--surface2);
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-dim);
+}
+
+.result-details .field {
+  display: flex;
+  gap: 8px;
+}
+
+.result-details .label {
+  color: var(--text-dim);
+  min-width: 100px;
+}
+
+.result-details .value {
+  color: var(--text);
+  word-break: break-all;
+}
+
+.result-details .success { color: var(--success); }
+.result-details .failed { color: var(--error-text); }
 </style>
 </head>
 <body>
@@ -320,6 +388,17 @@ header h1 {
   </div>
 </div>
 
+<div class="progress-bar" id="progress-bar">
+  <span class="progress-step" data-phase="discovery">Discovery</span>
+  <span class="progress-step" data-phase="workspace">Workspace</span>
+  <span class="progress-step" data-phase="planning">Planning</span>
+  <span class="progress-step" data-phase="coding">Coding</span>
+  <span class="progress-step" data-phase="testing">Testing</span>
+  <span class="progress-step" data-phase="commit">Commit</span>
+  <span class="progress-step" data-phase="pr">PR</span>
+  <span class="progress-step" data-phase="deploy">Deploy</span>
+</div>
+
 <div class="typing-indicator" id="typing">
   <div class="typing-dots"><span></span><span></span><span></span></div>
 </div>
@@ -338,6 +417,71 @@ let sending = false;
 function autoResize(el) {
   el.style.height = 'auto';
   el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function showProgress() {
+  const bar = document.getElementById('progress-bar');
+  bar.classList.add('visible');
+  bar.querySelectorAll('.progress-step').forEach(s => {
+    s.className = 'progress-step';
+  });
+}
+
+function setProgressPhase(phase, state) {
+  const bar = document.getElementById('progress-bar');
+  const step = bar.querySelector(`[data-phase="${phase}"]`);
+  if (step) {
+    step.className = 'progress-step ' + state;
+  }
+}
+
+function hideProgress() {
+  document.getElementById('progress-bar').classList.remove('visible');
+}
+
+function formatCodingResult(d) {
+  let lines = [];
+  if (d.response) lines.push(d.response);
+
+  const details = [];
+  if (d.status) details.push({ label: 'Status', value: d.status, cls: d.success ? 'success' : 'failed' });
+  if (d.operation_id) details.push({ label: 'Operation', value: d.operation_id });
+  if (d.files_modified && d.files_modified.length) {
+    details.push({ label: 'Files', value: d.files_modified.join(', ') });
+  }
+  if (d.tests_passed !== undefined || d.tests_failed !== undefined) {
+    const passed = d.tests_passed || 0;
+    const failed = d.tests_failed || 0;
+    details.push({
+      label: 'Tests',
+      value: `${passed} passed, ${failed} failed`,
+      cls: failed > 0 ? 'failed' : 'success',
+    });
+  }
+  if (d.commit_sha) details.push({ label: 'Commit', value: d.commit_sha.substring(0, 8) });
+  if (d.pull_request) {
+    details.push({ label: 'PR', value: `#${d.pull_request.number} ${d.pull_request.url}` });
+  }
+  if (d.deployment) {
+    details.push({ label: 'Preview', value: `${d.deployment.state}: ${d.deployment.url}` });
+  }
+  if (d.iterations > 0) details.push({ label: 'Fix iterations', value: d.iterations });
+  if (d.errors && d.errors.length) {
+    details.push({ label: 'Errors', value: d.errors.join('; '), cls: 'failed' });
+  }
+  if (d.warnings && d.warnings.length) {
+    details.push({ label: 'Warnings', value: d.warnings.join('; ') });
+  }
+
+  if (details.length > 0) {
+    let html = '<div class="result-details">';
+    for (const f of details) {
+      html += `<div class="field"><span class="label">${f.label}:</span> <span class="value ${f.cls || ''}">${f.value}</span></div>`;
+    }
+    html += '</div>';
+    return { text: lines.join('\n'), html: html };
+  }
+  return { text: lines.join('\n'), html: '' };
 }
 
 async function loadHealth() {
@@ -428,6 +572,11 @@ async function send() {
   addMessage('user', msg);
   showTyping();
 
+  if (currentMode === 'coding') {
+    showProgress();
+    setProgressPhase('discovery', 'active');
+  }
+
   try {
     let url, body;
     if (currentMode === 'business') {
@@ -456,25 +605,26 @@ async function send() {
 
     const d = await r.json();
     hideTyping();
+    hideProgress();
 
     if (!r.ok) {
-      addMessage('error', d.detail || d.error || 'Request failed', true);
+      addMessage('error', d.detail || 'Request failed', true);
+    } else if (currentMode === 'coding') {
+      const result = formatCodingResult(d);
+      const msgDiv = addMessage('assistant', result.text);
+      if (result.html) {
+        const detailsDiv = document.createElement('div');
+        detailsDiv.innerHTML = result.html;
+        msgDiv.appendChild(detailsDiv);
+      }
+      if (d.status === 'success') setProgressPhase('deploy', 'done');
     } else {
       const text = d.response || d.text || d.detail || '';
-      let display = text;
-      if (currentMode === 'coding' && d.files_modified && d.files_modified.length) {
-        display += '\n\nFiles modified: ' + d.files_modified.join(', ');
-      }
-      if (currentMode === 'coding' && d.pull_request) {
-        display += '\nPR: ' + d.pull_request.url;
-      }
-      if (currentMode === 'coding' && d.deployment) {
-        display += '\nPreview: ' + d.deployment.url;
-      }
-      addMessage('assistant', display);
+      addMessage('assistant', text);
     }
   } catch(e) {
     hideTyping();
+    hideProgress();
     addMessage('error', 'Network error: ' + e.message, true);
   } finally {
     sending = false;

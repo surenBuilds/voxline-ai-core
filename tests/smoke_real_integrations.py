@@ -1,21 +1,18 @@
-"""Optional real smoke tests for external integrations.
+"""
+Optional real integration smoke tests (Phase 7 Step 12).
 
-These tests use REAL credentials and make REAL API calls.
-They are DISABLED by default.
+Gated behind VOXLINE_EXTERNAL_SMOKE=1 environment variable.
+Without it, all tests are skipped.
 
-To run:
-    set VOXLINE_EXTERNAL_SMOKE=1
-    python -m pytest tests/smoke_external_integrations.py -v
+With it:
+  - Verify GitHub authentication
+  - Verify repository access
+  - Verify Vercel authentication
+  - Verify project access
 
-Requirements:
-    GITHUB_TOKEN environment variable
-    VERCEL_TOKEN environment variable
-
-These tests NEVER:
-    - modify production
-    - delete resources
-    - merge PRs
-    - rewrite history
+NEVER creates production deployments.
+NEVER merges PRs.
+NEVER deletes anything.
 """
 
 import os
@@ -39,14 +36,16 @@ class TestGitHubSmoke(unittest.TestCase):
         if not self.creds.is_available("github"):
             self.skipTest("GITHUB_TOKEN not set")
 
-    def test_01_github_authentication(self):
+    def test_01_github_auth(self):
+        """Verify GitHub token is valid."""
         from src.integrations.github.client import GitHubClient
         token = self.creds.get_token("github")
         client = GitHubClient(token)
         repos = client.list_repositories(per_page=1)
         self.assertIsInstance(repos, list)
 
-    def test_02_github_repository_access(self):
+    def test_02_github_repo_access(self):
+        """Verify we can read a configured repo."""
         from src.integrations.github.client import GitHubClient
         token = self.creds.get_token("github")
         client = GitHubClient(token)
@@ -70,7 +69,8 @@ class TestVercelSmoke(unittest.TestCase):
         if not self.creds.is_available("vercel"):
             self.skipTest("VERCEL_TOKEN not set")
 
-    def test_03_vercel_authentication(self):
+    def test_03_vercel_auth(self):
+        """Verify Vercel token is valid."""
         from src.integrations.vercel.client import VercelClient
         token = self.creds.get_token("vercel")
         client = VercelClient(token)
@@ -78,6 +78,7 @@ class TestVercelSmoke(unittest.TestCase):
         self.assertIsInstance(projects, list)
 
     def test_04_vercel_project_access(self):
+        """Verify we can list projects."""
         from src.integrations.vercel.client import VercelClient
         token = self.creds.get_token("vercel")
         client = VercelClient(token)

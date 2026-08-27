@@ -197,6 +197,7 @@ def _build_assistants(provider: AIProvider) -> None:
         max_fix_iterations=config.coding_agent_max_fix_iterations,
         max_context_chars=config.coding_agent_max_context_chars,
         require_approval_for_writes=config.coding_agent_require_approval_for_writes,
+        auto_approve_workspace_writes=True,
     )
 
 
@@ -263,9 +264,11 @@ async def api_chat(request: ChatRequest):
             "model": response.model_id,
         }
     except Exception as exc:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
+        logger.exception("Chat endpoint error")
+        raise HTTPException(
+            status_code=500,
+            detail="Internal error processing chat request",
+        )
 
 
 @app.post("/api/business")
@@ -300,9 +303,11 @@ async def api_business(request: BusinessChatRequest):
             "model": response.model_id,
         }
     except Exception as exc:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
+        logger.exception("Business endpoint error")
+        raise HTTPException(
+            status_code=500,
+            detail="Internal error processing business request",
+        )
 
 
 @app.post("/api/coding")
@@ -313,34 +318,53 @@ async def api_coding(request: CodingRequest):
     session_id = request.session_id or None
 
     try:
-        if request.repository_owner and request.repository_name:
-            result = _coding_assistant.execute_with_repository(
-                user_request=request.message,
-                repository_owner=request.repository_owner,
-                repository_name=request.repository_name,
-                repository_branch=request.repository_branch,
-                session_id=session_id,
-                create_pr=request.create_pr,
-                deploy_preview=request.deploy_preview,
-            )
-        else:
-            result = _coding_assistant.execute(
-                user_request=request.message,
-                session_id=session_id,
-            )
+        import concurrent.futures
+
+        def _run_coding():
+            if request.repository_owner and request.repository_name:
+                return _coding_assistant.execute_with_repository(
+                    user_request=request.message,
+                    repository_owner=request.repository_owner,
+                    repository_name=request.repository_name,
+                    repository_branch=request.repository_branch,
+                    session_id=session_id,
+                    create_pr=request.create_pr,
+                    deploy_preview=request.deploy_preview,
+                )
+            else:
+                return _coding_assistant.execute(
+                    user_request=request.message,
+                    session_id=session_id,
+                )
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(_run_coding)
+            try:
+                result = future.result(timeout=300)
+            except concurrent.futures.TimeoutError:
+                future.cancel()
+                raise HTTPException(
+                    status_code=504,
+                    detail="Coding task timed out after 300 seconds",
+                )
 
         response_data = {
             "response": result.summary,
             "mode": "coding",
             "assistant": "coding",
             "session_id": result.task_id,
+            "operation_id": result.operation_id,
             "success": result.success,
+            "status": result.status.value if hasattr(result.status, 'value') else result.status,
             "files_modified": result.files_modified,
             "commands_executed": result.commands_executed,
             "test_results": result.test_results,
+            "tests_passed": result.tests_passed,
+            "tests_failed": result.tests_failed,
             "errors": result.errors,
             "warnings": result.warnings,
             "iterations": result.iterations,
+            "commit_sha": result.commit_sha,
         }
         if result.pull_request:
             response_data["pull_request"] = {
@@ -358,10 +382,14 @@ async def api_coding(request: CodingRequest):
                 "state": result.deployment.state,
             }
         return response_data
+    except HTTPException:
+        raise
     except Exception as exc:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
+        logger.exception("Coding endpoint error")
+        raise HTTPException(
+            status_code=500,
+            detail="Internal error processing coding request",
+        )
 
 
 @app.get("/api/integrations")

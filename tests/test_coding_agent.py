@@ -462,6 +462,7 @@ class TestApprovalWorkflow(unittest.TestCase):
         agent = CodingAgent(
             provider=provider, workspace=self.tmpdir,
             require_approval_for_writes=True,
+            auto_approve_workspace_writes=False,
         )
         step = CodingStep(
             step_number=1,
@@ -500,6 +501,7 @@ class TestApprovalWorkflow(unittest.TestCase):
         agent = CodingAgent(
             provider=provider, workspace=self.tmpdir,
             require_approval_for_writes=True,
+            auto_approve_workspace_writes=False,
         )
         task = agent._create_task("write something", None, None)
         plan = CodingPlan(

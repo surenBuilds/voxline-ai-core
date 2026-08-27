@@ -332,6 +332,54 @@ class VoxlineConfig:
     def is_production(self) -> bool:
         return self.environment == "production"
 
+    def validate(self) -> list:
+        """Validate configuration and return list of warnings/errors.
+
+        Returns empty list if configuration is valid.
+        Never logs or returns secret values.
+        """
+        issues = []
+
+        if self.github_enabled:
+            token = self.github_token
+            if not token:
+                issues.append(
+                    "GITHUB_ENABLED=true but GITHUB_TOKEN is not set. "
+                    "GitHub tools will not be available."
+                )
+            allowed = self.github_allowed_repositories
+            if allowed:
+                for repo in allowed:
+                    if "/" not in repo:
+                        issues.append(
+                            f"GitHub allowed repository '{repo}' does not "
+                            f"match expected format 'owner/repo'."
+                        )
+
+        if self.vercel_enabled:
+            token = self.vercel_token
+            if not token:
+                issues.append(
+                    "VERCEL_ENABLED=true but VERCEL_TOKEN is not set. "
+                    "Vercel tools will not be available."
+                )
+
+        timeout = self.agent_step_timeout
+        if timeout < 10:
+            issues.append(
+                f"AGENT_STEP_TIMEOUT={timeout}s is very low. "
+                f"Recommend >= 30s."
+            )
+
+        max_fix = self.coding_agent_max_fix_iterations
+        if max_fix > 10:
+            issues.append(
+                f"CODING_AGENT_MAX_FIX_ITERATIONS={max_fix} is very high. "
+                f"Recommend <= 5."
+            )
+
+        return issues
+
 
 # Global singleton
 _config: Optional[VoxlineConfig] = None

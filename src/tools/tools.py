@@ -539,7 +539,7 @@ class ToolRegistry:
         """Return categorized tool summaries safe for LLM context.
 
         Never exposes credentials, security internals, or implementation details.
-        Only returns: name, category, description.
+        Only returns: name, category, description, requires_approval.
         """
         categories: Dict[str, List[Dict[str, str]]] = {}
         for name, tool in self.tools.items():
@@ -552,9 +552,14 @@ class ToolRegistry:
                 cat = "workspace"
             else:
                 cat = "core"
+            profile = tool.security_profile
+            requires_approval = profile.requires_approval or (
+                name == "write_file" and profile.filesystem_write
+            )
             categories.setdefault(cat, []).append({
                 "name": name,
                 "description": schema.description,
+                "requires_approval": requires_approval,
             })
         return categories
 

@@ -9,6 +9,10 @@ Tools never bypass the security layer.
 from __future__ import annotations
 
 import logging
+import os
+import re
+import shlex
+import subprocess
 import time
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass
@@ -38,8 +42,10 @@ class RepositoryWorkspace:
     """Manages a local clone of a GitHub repository.
 
     Ensures all operations stay within the configured workspace root.
-    Uses git commands via subprocess (shell=False).
+    Uses git commands via subprocess (shell=False) with security validation.
     """
+
+    _BRANCH_RE = re.compile(r"^[a-zA-Z0-9._/\-]+$")
 
     def __init__(
         self,
@@ -47,6 +53,7 @@ class RepositoryWorkspace:
         owner: str,
         repo: str,
         branch: str = "main",
+        audit_log: Optional[AuditLog] = None,
     ):
         self.workspace_root = workspace_root
         self.owner = owner
@@ -54,15 +61,65 @@ class RepositoryWorkspace:
         self.branch = branch
         self.repo_dir = f"{workspace_root}/{owner}__{repo}"
         self._path_security = PathSecurity(workspace_root)
+        self._audit_log = audit_log
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
 
     def get_repo_path(self) -> str:
         return self.repo_dir
 
+    @staticmethod
+    def branch_name_is_valid(branch: str) -> bool:
+        """Return *True* if *branch* contains only safe characters."""
+        if not branch:
+            return False
+        if branch.startswith(".") or branch.startswith("/"):
+            return False
+        if branch.endswith(".") or branch.endswith("/"):
+            return False
+        return bool(RepositoryWorkspace._BRANCH_RE.match(branch))
+
+    def _validate_repo_dir(self) -> None:
+        """Ensure repo_dir is inside workspace_root."""
+        self._path_security.validate_path(self.repo_dir)
+
+    def _run_git(
+        self,
+        args: List[str],
+        cwd: Optional[str] = None,
+        timeout: int = 30,
+    ) -> subprocess.CompletedProcess[str]:
+        """Run a git command with security checks and optional audit logging."""
+        self._validate_repo_dir()
+        effective_cwd = cwd or self.repo_dir
+        cmd = ["git"] + args
+        if self._audit_log is not None:
+            self._audit_log.log_event(
+                "git_command",
+                {"command": cmd, "cwd": effective_cwd},
+            )
+        return subprocess.run(
+            cmd,
+            cwd=effective_cwd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            shell=False,
+        )
+
+    # ------------------------------------------------------------------
+    # Git operations
+    # ------------------------------------------------------------------
+
     def clone(self, clone_url: str) -> Dict[str, Any]:
-        import subprocess
+        self._validate_repo_dir()
+        cmd = ["git", "clone", clone_url, self.repo_dir]
+        if self._audit_log is not None:
+            self._audit_log.log_event("git_command", {"command": cmd, "cwd": None})
         result = subprocess.run(
-            ["git", "clone", clone_url, self.repo_dir],
-            capture_output=True, text=True, timeout=120, shell=False,
+            cmd, capture_output=True, text=True, timeout=120, shell=False,
         )
         return {
             "success": result.returncode == 0,
@@ -71,12 +128,7 @@ class RepositoryWorkspace:
         }
 
     def checkout(self, branch: str) -> Dict[str, Any]:
-        import subprocess
-        result = subprocess.run(
-            ["git", "checkout", branch],
-            cwd=self.repo_dir,
-            capture_output=True, text=True, timeout=30, shell=False,
-        )
+        result = self._run_git(["checkout", branch])
         self.branch = branch
         return {
             "success": result.returncode == 0,
@@ -85,12 +137,7 @@ class RepositoryWorkspace:
         }
 
     def create_branch(self, branch: str) -> Dict[str, Any]:
-        import subprocess
-        result = subprocess.run(
-            ["git", "checkout", "-b", branch],
-            cwd=self.repo_dir,
-            capture_output=True, text=True, timeout=30, shell=False,
-        )
+        result = self._run_git(["checkout", "-b", branch])
         self.branch = branch
         return {
             "success": result.returncode == 0,
@@ -99,35 +146,16 @@ class RepositoryWorkspace:
         }
 
     def diff(self) -> str:
-        import subprocess
-        result = subprocess.run(
-            ["git", "diff"],
-            cwd=self.repo_dir,
-            capture_output=True, text=True, timeout=30, shell=False,
-        )
+        result = self._run_git(["diff"])
         return result.stdout
 
     def status(self) -> str:
-        import subprocess
-        result = subprocess.run(
-            ["git", "status", "--short"],
-            cwd=self.repo_dir,
-            capture_output=True, text=True, timeout=30, shell=False,
-        )
+        result = self._run_git(["status", "--short"])
         return result.stdout
 
     def commit(self, message: str) -> Dict[str, Any]:
-        import subprocess
-        subprocess.run(
-            ["git", "add", "-A"],
-            cwd=self.repo_dir,
-            capture_output=True, text=True, timeout=30, shell=False,
-        )
-        result = subprocess.run(
-            ["git", "commit", "-m", message],
-            cwd=self.repo_dir,
-            capture_output=True, text=True, timeout=30, shell=False,
-        )
+        self._run_git(["add", "-A"])
+        result = self._run_git(["commit", "-m", message])
         return {
             "success": result.returncode == 0,
             "output": result.stdout,
@@ -135,12 +163,7 @@ class RepositoryWorkspace:
         }
 
     def push(self, branch: str) -> Dict[str, Any]:
-        import subprocess
-        result = subprocess.run(
-            ["git", "push", "origin", branch],
-            cwd=self.repo_dir,
-            capture_output=True, text=True, timeout=60, shell=False,
-        )
+        result = self._run_git(["push", "origin", branch], timeout=60)
         return {
             "success": result.returncode == 0,
             "output": result.stdout,
@@ -148,10 +171,11 @@ class RepositoryWorkspace:
         }
 
     def run_tests(self, test_command: str = "pytest") -> Dict[str, Any]:
-        import subprocess
+        self._validate_repo_dir()
         try:
+            parts = shlex.split(test_command, posix=(os.name != "nt"))
             result = subprocess.run(
-                test_command.split(),
+                parts,
                 cwd=self.repo_dir,
                 capture_output=True, text=True, timeout=120, shell=False,
             )

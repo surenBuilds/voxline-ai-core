@@ -22,6 +22,8 @@ from __future__ import annotations
 
 import json
 import logging
+import re
+import subprocess
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -189,19 +191,64 @@ class IterationRecord:
     success: bool
 
 
+class CodingStatus(Enum):
+    """Overall status of a coding operation."""
+    SUCCESS = "success"
+    PARTIAL_SUCCESS = "partial_success"
+    FAILED = "failed"
+    AWAITING_APPROVAL = "awaiting_approval"
+    TIMED_OUT = "timed_out"
+    PLAN_FAILED = "plan_failed"
+    VALIDATION_FAILED = "validation_failed"
+    GITHUB_FAILED = "github_failed"
+    VERCEL_FAILED = "vercel_failed"
+    WORKSPACE_FAILED = "workspace_failed"
+
+
+class FailureType(Enum):
+    """Structured failure classification."""
+    PLANNING = "planning"
+    TOOL_VALIDATION = "tool_validation"
+    AUTHORIZATION = "authorization"
+    COMMAND = "command"
+    TEST_FAILURE = "test_failure"
+    GITHUB = "github"
+    VERCEL = "vercel"
+    TIMEOUT = "timeout"
+    PROVIDER = "provider"
+    WORKSPACE = "workspace"
+    UNKNOWN = "unknown"
+
+
+@dataclass
+class FailureInfo:
+    """Structured failure data."""
+    failure_type: FailureType
+    message: str
+    phase: str = ""
+    tool_name: str = ""
+    details: Optional[Dict[str, Any]] = None
+
+
 @dataclass
 class CodingResult:
     task_id: str
     success: bool
     summary: str
+    status: CodingStatus = CodingStatus.SUCCESS
+    operation_id: str = ""
     changes: List[str] = field(default_factory=list)
     files_modified: List[str] = field(default_factory=list)
     commands_executed: List[str] = field(default_factory=list)
     tests_run: List[str] = field(default_factory=list)
+    tests_passed: int = 0
+    tests_failed: int = 0
     test_results: Dict[str, bool] = field(default_factory=dict)
     errors: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
+    failures: List[FailureInfo] = field(default_factory=list)
     iterations: int = 0
+    commit_sha: str = ""
     audit_reference: str = ""
     pull_request: Optional[PullRequestInfo] = None
     deployment: Optional[DeploymentInfo] = None
@@ -233,6 +280,9 @@ class CodingAgent:
         max_context_chars: int = 8000,
         require_approval_for_writes: bool = True,
         timeout: int = 300,
+        auto_approve_workspace_writes: bool = True,
+        vercel_poll_interval: int = 5,
+        vercel_poll_timeout: int = 120,
     ):
         self.provider = provider
         self.workspace = str(Path(workspace).resolve())
@@ -248,7 +298,10 @@ class CodingAgent:
         self.max_fix_iterations = max_fix_iterations
         self.max_context_chars = max_context_chars
         self.require_approval_for_writes = require_approval_for_writes
+        self.auto_approve_workspace_writes = auto_approve_workspace_writes
         self.timeout = timeout
+        self.vercel_poll_interval = vercel_poll_interval
+        self.vercel_poll_timeout = vercel_poll_timeout
         self._path_security = PathSecurity(self.workspace)
 
     # ------------------------------------------------------------------
@@ -265,6 +318,7 @@ class CodingAgent:
 
         Returns CodingResult with structured output.
         """
+        operation_id = f"op_{uuid.uuid4().hex[:12]}"
         task = self._create_task(user_request, session_id, constraints)
 
         try:
@@ -276,20 +330,35 @@ class CodingAgent:
             task.status = TaskStatus.EXECUTING
 
             result = self._execute_plan(task, plan)
+            result.operation_id = operation_id
             return result
 
         except AgentPlanError as exc:
-            logger.error("Plan generation failed: %s", exc)
-            return self._failure_result(task, f"Plan generation failed: {exc}")
+            return self._failure_result(
+                task, f"Plan generation failed: {exc}",
+                status=CodingStatus.PLAN_FAILED,
+                operation_id=operation_id,
+                failure_type=FailureType.PLANNING,
+            )
         except AgentTimeoutError as exc:
-            logger.error("Execution timed out: %s", exc)
-            return self._failure_result(task, f"Execution timed out: {exc}")
+            return self._failure_result(
+                task, f"Execution timed out: {exc}",
+                status=CodingStatus.TIMED_OUT,
+                operation_id=operation_id,
+                failure_type=FailureType.TIMEOUT,
+            )
         except AgentMaxIterationsError as exc:
-            logger.error("Max iterations exceeded: %s", exc)
-            return self._failure_result(task, f"Max fix iterations exceeded: {exc}")
+            return self._failure_result(
+                task, f"Max fix iterations exceeded: {exc}",
+                operation_id=operation_id,
+            )
         except Exception as exc:
             logger.error("Unexpected error: %s", exc, exc_info=True)
-            return self._failure_result(task, f"Unexpected error: {exc}")
+            return self._failure_result(
+                task, f"Unexpected error: {type(exc).__name__}",
+                operation_id=operation_id,
+                failure_type=FailureType.UNKNOWN,
+            )
 
     def execute_with_repository(
         self,
@@ -311,13 +380,18 @@ class CodingAgent:
           D. Implementation — modify files, run tests
           E. Review — git diff, validate changes
           F. GitHub — commit, push, create PR
-          G. Vercel — deploy preview
+          G. Vercel — deploy preview + verify
           H. Report — structured result
         """
+        operation_id = f"op_{uuid.uuid4().hex[:12]}"
         task = self._create_task(user_request, session_id, constraints)
         task.repository_owner = repository_owner
         task.repository_name = repository_name
         task.repository_branch = repository_branch
+
+        feature_branch = self._sanitize_branch_name(
+            f"voxline/{task.task_id}"
+        )
 
         if repository_owner and repository_name:
             task.repository = RepositoryContext(
@@ -325,8 +399,6 @@ class CodingAgent:
                 name=repository_name,
                 branch=repository_branch,
             )
-
-        feature_branch = f"voxline/{task.task_id}"
 
         try:
             # Phase A: Discovery
@@ -337,7 +409,12 @@ class CodingAgent:
             # Phase B: Workspace
             workspace_ok = self._phase_workspace(task, feature_branch)
             if not workspace_ok:
-                return self._failure_result(task, "Workspace setup failed")
+                return self._failure_result(
+                    task, "Workspace setup failed",
+                    status=CodingStatus.WORKSPACE_FAILED,
+                    operation_id=operation_id,
+                    failure_type=FailureType.WORKSPACE,
+                )
 
             # Phase C: Analysis
             task.status = TaskStatus.ANALYZING
@@ -346,6 +423,7 @@ class CodingAgent:
             # Phase D: Implementation
             task.status = TaskStatus.EXECUTING
             result = self._execute_plan(task, plan)
+            result.operation_id = operation_id
 
             if not result.success and not result.files_modified:
                 return result
@@ -356,14 +434,29 @@ class CodingAgent:
 
             # Phase F: GitHub
             if create_pr and repository_owner and repository_name:
-                pr_info = self._phase_github(task, feature_branch, repository_branch)
+                commit_sha = self._phase_commit_and_push(
+                    task, feature_branch,
+                )
+                if commit_sha:
+                    result.commit_sha = commit_sha
+
+                pr_info = self._phase_github(
+                    task, feature_branch, repository_branch,
+                )
                 if pr_info:
                     result.pull_request = pr_info
+                else:
+                    result.warnings.append(
+                        "PR creation failed or was not possible"
+                    )
 
             # Phase G: Vercel
             if deploy_preview and result.pull_request:
-                deploy_info = self._phase_vercel(task)
+                deploy_info = self._phase_vercel(task, feature_branch)
                 if deploy_info:
+                    verified = self._verify_deployment(deploy_info)
+                    if verified:
+                        deploy_info.state = verified
                     result.deployment = deploy_info
 
             # Phase H: Report
@@ -377,14 +470,31 @@ class CodingAgent:
             return result
 
         except AgentPlanError as exc:
-            return self._failure_result(task, f"Plan generation failed: {exc}")
+            return self._failure_result(
+                task, f"Plan generation failed: {exc}",
+                status=CodingStatus.PLAN_FAILED,
+                operation_id=operation_id,
+                failure_type=FailureType.PLANNING,
+            )
         except AgentTimeoutError as exc:
-            return self._failure_result(task, f"Execution timed out: {exc}")
+            return self._failure_result(
+                task, f"Execution timed out: {exc}",
+                status=CodingStatus.TIMED_OUT,
+                operation_id=operation_id,
+                failure_type=FailureType.TIMEOUT,
+            )
         except AgentMaxIterationsError as exc:
-            return self._failure_result(task, f"Max fix iterations exceeded: {exc}")
+            return self._failure_result(
+                task, f"Max fix iterations exceeded: {exc}",
+                operation_id=operation_id,
+            )
         except Exception as exc:
             logger.error("Repository workflow error: %s", exc, exc_info=True)
-            return self._failure_result(task, f"Workflow error: {exc}")
+            return self._failure_result(
+                task, f"Workflow error: {type(exc).__name__}",
+                operation_id=operation_id,
+                failure_type=FailureType.UNKNOWN,
+            )
 
     # ------------------------------------------------------------------
     # Repository workflow phases
@@ -479,13 +589,12 @@ class CodingAgent:
             return {"changes": changes[:50], "diff": diff_text}
         return {}
 
-    def _phase_github(
+    def _phase_commit_and_push(
         self,
         task: CodingTask,
         feature_branch: str,
-        base_branch: str,
-    ) -> Optional[PullRequestInfo]:
-        """Phase F: Commit, push, create pull request."""
+    ) -> Optional[str]:
+        """Commit changes and push to remote before PR creation."""
         if not task.repository_owner or not task.repository_name:
             return None
 
@@ -493,16 +602,55 @@ class CodingAgent:
         if commit_tool is None:
             return None
 
-        commit_result = self.tool_registry.execute(
+        diff_result = self.tool_registry.execute(
             "workspace_diff",
             owner=task.repository_owner,
             repo=task.repository_name,
         )
         diff_text = ""
-        if isinstance(commit_result, dict):
-            diff_text = commit_result.get("diff", "")
+        if isinstance(diff_result, dict):
+            diff_text = diff_result.get("diff", "")
 
         if not diff_text.strip():
+            return None
+
+        commit_msg = (
+            f"Voxline: {task.user_request[:72]}\n\n"
+            f"Automated changes by Voxline AI CodingAgent.\n"
+            f"Task ID: {task.task_id}"
+        )
+
+        from src.tools.integration_tools import RepositoryWorkspace
+        ws = RepositoryWorkspace(
+            self.workspace,
+            task.repository_owner,
+            task.repository_name,
+        )
+        commit_result = ws.commit(commit_msg)
+        if not commit_result.get("success"):
+            logger.warning("Commit failed: %s", commit_result.get("error"))
+            return None
+
+        push_result = ws.push(feature_branch)
+        if not push_result.get("success"):
+            logger.warning("Push failed: %s", push_result.get("error"))
+            return None
+
+        sha_result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=ws.repo_dir,
+            capture_output=True, text=True, timeout=10, shell=False,
+        )
+        return sha_result.stdout.strip() if sha_result.returncode == 0 else ""
+
+    def _phase_github(
+        self,
+        task: CodingTask,
+        feature_branch: str,
+        base_branch: str,
+    ) -> Optional[PullRequestInfo]:
+        """Phase F: Create pull request (after commit + push)."""
+        if not task.repository_owner or not task.repository_name:
             return None
 
         pr_title = f"Voxline: {task.user_request[:80]}"
@@ -536,18 +684,24 @@ class CodingAgent:
             )
         return None
 
-    def _phase_vercel(self, task: CodingTask) -> Optional[DeploymentInfo]:
+    def _phase_vercel(
+        self,
+        task: CodingTask,
+        feature_branch: str = "",
+    ) -> Optional[DeploymentInfo]:
         """Phase G: Create Vercel preview deployment."""
         deploy_tool = self.tool_registry.get_tool("vercel_create_deployment")
         if deploy_tool is None:
             return None
+
+        branch = feature_branch or task.repository_branch
 
         result = self.tool_registry.execute(
             "vercel_create_deployment",
             project_id=task.repository_name,
             name=f"pr-{task.task_id}",
             target="preview",
-            git_branch=task.repository_branch,
+            git_branch=branch,
             git_repo=f"{task.repository_owner}/{task.repository_name}",
         )
         if isinstance(result, dict) and not result.get("error"):
@@ -558,6 +712,38 @@ class CodingAgent:
                 state=result.get("state", "building"),
             )
         return None
+
+    def _verify_deployment(
+        self,
+        deployment: DeploymentInfo,
+        max_wait: Optional[int] = None,
+    ) -> Optional[str]:
+        """Poll Vercel deployment until terminal state or timeout."""
+        if not deployment.id:
+            return None
+
+        get_tool = self.tool_registry.get_tool("vercel_get_deployment")
+        if get_tool is None:
+            return None
+
+        wait = max_wait or self.vercel_poll_timeout
+        elapsed = 0
+
+        while elapsed < wait:
+            import time as _time
+            _time.sleep(self.vercel_poll_interval)
+            elapsed += self.vercel_poll_interval
+
+            result = self.tool_registry.execute(
+                "vercel_get_deployment",
+                deployment_id=deployment.id,
+            )
+            if isinstance(result, dict) and not result.get("error"):
+                state = result.get("state", "")
+                if state in ("ready", "error", "canceled"):
+                    return state
+
+        return "timeout"
 
     # ------------------------------------------------------------------
     # Task creation
@@ -595,6 +781,15 @@ class CodingAgent:
             constraints=constraints or [],
             language=user_lang,
         )
+
+    @staticmethod
+    def _sanitize_branch_name(name: str) -> str:
+        """Sanitize a branch name to only contain valid git characters."""
+        sanitized = re.sub(r"[^a-zA-Z0-9._/\-]", "-", name)
+        sanitized = sanitized.strip("./")
+        if not sanitized:
+            sanitized = "voxline-work"
+        return sanitized
 
     # ------------------------------------------------------------------
     # Project inspection
@@ -843,17 +1038,36 @@ class CodingAgent:
         audit_entries = self.tool_registry.audit_log.entries
         audit_ref = audit_entries[-1].session_id if audit_entries else ""
 
+        tests_passed = sum(1 for v in test_results.values() if v)
+        tests_failed = sum(1 for v in test_results.values() if not v)
+
+        if not success:
+            status = CodingStatus.VALIDATION_FAILED if tests_failed else CodingStatus.FAILED
+        else:
+            status = CodingStatus.SUCCESS
+
+        failures: List[FailureInfo] = []
+        for err in errors:
+            failures.append(FailureInfo(
+                failure_type=FailureType.COMMAND,
+                message=err,
+            ))
+
         return CodingResult(
             task_id=task.task_id,
             success=success,
             summary=summary,
+            status=status,
             changes=[a.content[:200] for a in actions if a.status == ActionStatus.EXECUTED],
             files_modified=files_modified,
             commands_executed=commands_executed,
             tests_run=list(test_results.keys()),
+            tests_passed=tests_passed,
+            tests_failed=tests_failed,
             test_results=test_results,
             errors=errors,
             warnings=plan.risks[:5],
+            failures=failures,
             iterations=0,
             audit_reference=audit_ref,
         )
@@ -918,7 +1132,9 @@ class CodingAgent:
     def _exec_write(
         self, action: CodingAction, step: CodingStep, task: CodingTask
     ) -> CodingAction:
-        if self.require_approval_for_writes:
+        path = step.target_files[0] if step.target_files else action.target
+
+        if self.require_approval_for_writes and not self.auto_approve_workspace_writes:
             action.status = ActionStatus.SKIPPED
             action.error = "Write requires approval"
             action.permission_decision = ToolPermissionResult(
@@ -927,7 +1143,6 @@ class CodingAgent:
             )
             return action
 
-        path = step.target_files[0] if step.target_files else action.target
         content = self._generate_file_content(step, task)
 
         val = self.tool_registry.validate_request("write_file", path=path)
@@ -1147,12 +1362,17 @@ class CodingAgent:
                     if a.status == ActionStatus.EXECUTED
                     and a.action_type == ActionType.WRITE
                 ]
+                tests_passed = sum(1 for v in test_results.values() if v)
+                tests_failed = sum(1 for v in test_results.values() if not v)
                 return CodingResult(
                     task_id=task.task_id,
                     success=True,
+                    status=CodingStatus.SUCCESS,
                     summary=f"Fixed after {i + 1} iteration(s)",
                     files_modified=files_modified,
                     test_results=test_results,
+                    tests_passed=tests_passed,
+                    tests_failed=tests_failed,
                     errors=[],
                     warnings=plan.risks[:5],
                     iterations=i + 1,
@@ -1256,12 +1476,25 @@ class CodingAgent:
             parts.append(f"Errors: {len(errors)}")
         return " ".join(parts)
 
-    def _failure_result(self, task: CodingTask, error: str) -> CodingResult:
+    def _failure_result(
+        self,
+        task: CodingTask,
+        error: str,
+        status: CodingStatus = CodingStatus.FAILED,
+        operation_id: str = "",
+        failure_type: FailureType = FailureType.UNKNOWN,
+    ) -> CodingResult:
         return CodingResult(
             task_id=task.task_id,
             success=False,
             summary=f"Failed: {error}",
+            status=status,
+            operation_id=operation_id,
             errors=[error],
+            failures=[FailureInfo(
+                failure_type=failure_type,
+                message=error,
+            )],
         )
 
     def _awaiting_approval_result(
@@ -1275,6 +1508,7 @@ class CodingAgent:
         return CodingResult(
             task_id=task.task_id,
             success=False,
+            status=CodingStatus.AWAITING_APPROVAL,
             summary=f"Awaiting approval for {len(pending)} action(s)",
             errors=errors + [
                 f"Pending approval: {a.action_type.value} {a.target}"

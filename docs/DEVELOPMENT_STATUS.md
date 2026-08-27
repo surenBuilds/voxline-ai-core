@@ -14,21 +14,24 @@ Architecture is ahead of model intelligence. All components functional but model
 | pytest (test_business_agent.py) | PASS | 2/2 |
 | pytest (test_architecture.py) | PASS | 35/35 |
 | pytest (test_providers.py) | PASS | 27/27 |
-| pytest (test_evaluation.py) | PASS | 121/121 |
+| pytest (test_evaluation.py) | PASS | 127/127 |
 | pytest (test_assistant.py) | PASS | 28/28 |
 | pytest (test_assistant_context.py) | PASS | 36/36 |
 | pytest (test_assistant_chat.py) | PASS | 26/26 |
 | pytest (test_assistant_business.py) | PASS | 55/55 |
-| pytest (test_tools_security.py) | PASS | 71/71 (2 skipped: Windows symlink) |
+| pytest (test_tools_security.py) | PASS | 73/73 (2 skipped: Windows symlink) |
 | pytest (test_server.py) | PASS | 18/18 |
 | pytest (test_language.py) | PASS | 29/29 |
 | pytest (test_coding_agent.py) | PASS | 33/33 |
 | pytest (test_github_integration.py) | PASS | 40/40 |
 | pytest (test_vercel_integration.py) | PASS | 25/25 |
 | pytest (test_tool_registration.py) | PASS | 32/32 |
+| pytest (test_production_hardening.py) | PASS | 31/31 |
+| pytest (e2e_coding_workflow.py) | PASS | 10/10 |
+| pytest (smoke_real_integrations.py) | SKIP | 4/4 (gated behind VOXLINE_EXTERNAL_SMOKE=1) |
 | pytest (test_armenian_benchmark.py) | PASS | 51/51 (15 skipped: live model) |
 | Smoke tests (baseline_smoke.py) | PASS | 14/14 |
-| Total | **PASS** | **657/657 (19 skipped)** |
+| Total | **PASS** | **669/669 (21 skipped)** |
 
 ## Component Status
 
@@ -60,10 +63,13 @@ Architecture is ahead of model intelligence. All components functional but model
 | **FileSizeGuard** | **Working** | File size enforcement for reads and writes (Phase 7 Step 7) |
 | **Tool Bootstrap** | **Working** | `build_tool_registry()` — conditional registration of core, GitHub, Vercel, workspace tools based on config/credentials. (Phase 7 Step 11) |
 | **Capability Discovery** | **Working** | `ToolRegistry.available_tools()` — categorized tool summaries safe for LLM context. (Phase 7 Step 11) |
-| **CodingAgent** | **Working** | Autonomous coding agent: plan → execute → validate → fix loop. Phase 11: repository context, 8-phase workflow (A-H), integration tool routing. (Phase 7 Steps 8+11) |
+| **CodingAgent** | **Working** | Autonomous coding agent: plan → execute → validate → fix loop. Phase 11: repository context, 8-phase workflow (A-H), integration tool routing. Phase 12: CodingStatus, FailureType, operation_id, branch sanitization, deployment verification. (Phase 7 Steps 8+11+12) |
 | **GitHub Integration** | **Working** | Client, service, permission policy (READ/WRITE/DESTRUCTIVE), RepositoryWorkspace, tools. (Phase 7 Step 10) |
 | **Vercel Integration** | **Working** | Client, service, permission policy (PREVIEW/PRODUCTION), deployment tools. (Phase 7 Step 10) |
 | **CredentialProvider** | **Working** | Environment-based credential management with redaction. Tokens never exposed to LLM. (Phase 7 Step 10) |
+| **Config Validation** | **Working** | `VoxlineConfig.validate()` — validates token presence, repo format, timeouts. (Phase 7 Step 12) |
+| **GitHub Workflow** | **Working** | Commit/push separate from PR creation, branch sanitization, feature branch auto-created. (Phase 7 Step 12) |
+| **Deployment Verification** | **Working** | `_verify_deployment()` polls Vercel API with timeout. (Phase 7 Step 12) |
 | **FastAPI Server** | **Working** | Provider-configurable via --provider flag (Phase 6: default=qwen) |
 | CLI chat.py | Working | Interactive chat with memory |
 | **Evaluation Schemas** | **Working** | BenchmarkCase, CaseResult, EvalReport, HumanEvalScores, EvaluationStatus |
@@ -215,4 +221,11 @@ Architecture is ahead of model intelligence. All components functional but model
 | feat: add Voxline evaluation framework | `3c0cc76` | Phase 3: evaluation system |
 | fix: stabilize Qwen provider runtime | `a541afe` | Phase 4: runtime fix + baseline comparison |
 | docs: intelligence strategy and model improvement roadmap | `833da85` | Phase 5: analysis, strategy, Phase 6 recommendation |
-| feat: evaluation calibration + Qwen deployment foundation | TBD | Phase 6: normalization, task-specific metrics, default provider=qwen |
+| feat: evaluation calibration + Qwen deployment foundation | `f1691a0` | Phase 6: normalization, task-specific metrics, default provider=qwen |
+| feat: Phase 7 Steps 1-4 | `f1691a0` | Config extensions, error hierarchy, SessionManager, ContextBuilder, ChatAssistant |
+| feat: Phase 7 Steps 5-6 | `6c95ebb` | BusinessAssistant with 12 task types |
+| feat: Phase 7 Step 7 | `693db58` | Tool security hardening |
+| feat: Phase 7 Step 8 | `e85e974` | CodingAgent autonomous coding |
+| feat: Phase 7 Steps 9-10 | `2f9a3ca` | Integrations + GitHub + Vercel |
+| feat: Phase 7 Step 11 | `7e13232` | Tool registration + E2E workflow |
+| feat: Phase 7 Step 12 | TBD | Production hardening + security audit |

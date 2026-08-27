@@ -66,12 +66,14 @@ src/
   agent/          AutonomousAgent, AgentState, ExecutionLog
   business/       BusinessAgent, BusinessPlan, BusinessPlanStep
   api/            FastAPI server, ConversationalAI
-  assistant/      ChatAssistant, BusinessAssistant, ContextBuilder, Session, SessionManager (Phase 7)
+  assistant/      ChatAssistant, BusinessAssistant, CodingAgent, ContextBuilder, Session, SessionManager (Phase 7)
   language.py     Language detection, LanguagePolicy — single source of truth for Armenian/English handling
   evaluation/     Schemas, metrics, datasets, runner, reports, comparison, normalize
   errors.py       Centralized error hierarchy (VoxlineError base)
   checkpoint.py   CheckpointLoader (save/load with config validation)
   logging.py      StructuredLogger, SecretFilteringFormatter, JSONFormatter
+  integrations/   credentials.py (CredentialProvider), github/ (GitHubService, client, models, policy), vercel/ (VercelService, client, models, policy), integration_tools.py (RepositoryWorkspace, integration tools)
+  integrations/models.py — shared CrossProviderError, NetworkError, TimeoutError, ValidationError, AuthError
   legacy/         Archived v0.3 modules (reference only)
 ```
 
@@ -325,7 +327,40 @@ ToolRegistry.available_tools()  →  LLM context (no tokens, no security profile
 | Component | Purpose |
 |-----------|---------|
 | `build_tool_registry(config)` | Single entry point. Conditionally registers tools based on config and available credentials. Called once at server startup. |
-| `ToolRegistry.available_tools()` | Returns categorized tool summaries safe for LLM context. Excludes sensitive fields (credentials, tokens). |
+| `ToolRegistry.available_tools()` | Returns categorized tool summaries safe for LLM context. Excludes sensitive fields (credentials, tokens). Includes `requires_approval` per tool. |
+
+### Production Hardening (Phase 7 Step 12)
+
+```
+VoxlineConfig.validate()
+    ↓
+Validates: token presence (GITHUB/VERCEL), repo format, timeouts, iteration limits
+    ↓
+GitHub Workflow (execute_with_repository):
+    Phase A: Discovery  →  Validate repo context, integration availability
+    Phase B: Workspace  →  Clone, checkout feature branch (sanitized name)
+    Phase C: Review     →  Read codebase, identify files
+    Phase D: Plan       →  LLM plan with tool context
+    Phase E: Execute    →  Three-phase execution (validate → authorize → execute)
+    Phase F: Validate   →  Run tests (shlex.split), count pass/fail
+    Phase G: Commit     →  Commit + push (separate from PR creation)
+    Phase H: PR         →  Create PR on GitHub
+    Phase I: Deploy     →  Deploy preview on Vercel + verify
+    ↓
+CodingResult (status, operation_id, files_modified, tests_passed, tests_failed,
+              commit_sha, pull_request, deployment, failures, error, warnings)
+```
+
+| Component | Purpose |
+|-----------|---------|
+| `CodingStatus` enum | SUCCESS, PARTIAL_SUCCESS, FAILED, AWAITING_APPROVAL, TIMED_OUT, PLAN_FAILED, VALIDATION_FAILED, GITHUB_FAILED, VERCEL_FAILED, WORKSPACE_FAILED |
+| `FailureType` enum | MISSING_TOKEN, INVALID_TOKEN, RATE_LIMITED, NETWORK, DEPLOYMENT_FAILED, PR_CREATION_FAILED |
+| `FailureInfo` dataclass | Structured failure info: type, tool, message, suggestion, recoverable |
+| `_sanitize_branch_name()` | Restricts branch names to `[a-zA-Z0-9._/\-]`, strips leading/trailing dots/slashes |
+| `_phase_commit_and_push()` | Dedicated commit+push phase, returns commit SHA, separate from PR creation |
+| `_verify_deployment()` | Polls Vercel API with configurable interval/timeout for deployment readiness |
+| `auto_approve_workspace_writes` | Separate flag from `require_approval_for_writes`; enables writes within workspace without manual approval |
+| `operation_id` | Generated per coding operation for audit traceability |
 
 ### CodingAgent End-to-End Workflow (Phase 7 Step 11)
 
