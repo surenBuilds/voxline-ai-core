@@ -1,0 +1,28 @@
+# Vercel serverless Python manifest (lean dependency set).
+#
+# Vercel natively auto-detects and installs Python dependencies with `uv sync`.
+# When both a `pyproject.toml` and a root `requirements.txt` exist and there is
+# no lockfile, Vercel prefers `pyproject.toml` (verified current behavior).
+#
+# This file intentionally lists ONLY the lean runtime deps needed by the
+# serverless gateway (api/index.py). It deliberately EXCLUDES torch/transformers
+# from the root requirements.txt, which would blow the serverless build-size
+# limits. Local development / CI still use the root requirements.txt
+# (`pip install -r requirements.txt`) and are unaffected by this file.
+#
+# No [build-system] is declared, so `uv sync` treats this as a virtual project
+# and installs just these dependencies (no package build).
+
+[project]
+name = "voxline-ai-gateway"
+version = "1.0.0"
+description = "Voxline AI Coding Agent serverless gateway (Vercel)"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn>=0.30.0",
+    "httpx>=0.27.0",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "loguru>=0.7.0",
+]
