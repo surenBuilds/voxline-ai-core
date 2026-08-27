@@ -608,6 +608,113 @@ class TestObservability(unittest.TestCase):
         self.assertIsInstance(result.audit_reference, str)
 
 
+# ---------------------------------------------------------------------------
+# REGRESSION: Step 13 real E2E defects
+# ---------------------------------------------------------------------------
+
+
+class TestStep13Regressions(unittest.TestCase):
+    """Regression tests for defects found during real E2E validation.
+
+    1. ToolRegistry.set_workspace_root() must NOT drop registration tools.
+    2. AuditLog.log_event() must exist and not raise (RepositoryWorkspace uses it).
+    3. After _phase_workspace, integration tools are still available.
+    """
+
+    def setUp(self):
+        self.root = tempfile.mkdtemp(prefix="reg_ws_")
+        self.audit = AuditLog()
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.root, ignore_errors=True)
+
+    def test_40_audit_log_event_records_without_error(self):
+        """AuditLog.log_event() is compatible and records an entry."""
+        entry = self.audit.log_event(
+            "git_command",
+            {"command": ["git", "add", "-A"]},
+            session_id="s1",
+        )
+        self.assertIsNotNone(entry)
+        # entry should be recorded in the log
+        self.assertEqual(len(self.audit.entries), 1)
+        self.assertEqual(self.audit.entries[0].tool_name, "git_command")
+
+    def test_41_set_workspace_root_preserves_tools(self):
+        """set_workspace_root() keeps previously registered (non-core) tools.
+
+        This guards against _phase_workspace silently dropping GitHub/Vercel
+        tools, which broke PR creation and deployment in the real workflow.
+        """
+        registry = ToolRegistry(workspace_root=self.root, audit_log=self.audit)
+        # Register a dummy integration tool, then re-root.
+        registry.register("github_create_pull_request", Calculator())
+        registry.register("workspace_clone", Calculator())
+        new_root = os.path.join(self.root, "repo__x")
+        registry.set_workspace_root(new_root)
+
+        self.assertEqual(registry.workspace_root, new_root)
+        # Integration tools must survive re-rooting.
+        self.assertIsNotNone(registry.get_tool("github_create_pull_request"))
+        self.assertIsNotNone(registry.get_tool("workspace_clone"))
+        # Core tools must still be present and re-bound to the new root.
+        self.assertIsNotNone(registry.get_tool("read_file"))
+        self.assertIsNotNone(registry.get_tool("write_file"))
+
+    def test_42_phase_workspace_preserves_registered_tools(self):
+        """After _phase_workspace, the tool registry still has non-core tools.
+
+        mocks the clone tool so no git/network is needed.
+        """
+        from unittest.mock import MagicMock
+        from src.tools.tools import Tool, ToolSecurityProfile, ToolSchema
+
+        class FakeCloneTool(Tool):
+            def __init__(self, repo_dir):
+                super().__init__(ToolSecurityProfile())
+                self._repo_dir = repo_dir
+
+            def execute(self, owner="", repo="", clone_url="", branch="main"):
+                return {"success": True, "repo_dir": self._repo_dir}
+
+            def get_schema(self):
+                return ToolSchema(name="workspace_clone", description="", input_schema={}, permissions=[])
+
+        class FakePRTool(Tool):
+            def __init__(self):
+                super().__init__(ToolSecurityProfile())
+
+            def execute(self, **kwargs):
+                return {"number": 1}
+
+            def get_schema(self):
+                return ToolSchema(name="gh_pr", description="", input_schema={}, permissions=[])
+
+        repo_dir = os.path.join(self.root, "local__demo")
+        registry = ToolRegistry(workspace_root=self.root, audit_log=self.audit)
+        registry.register("workspace_clone", FakeCloneTool(repo_dir))
+        registry.register("github_create_pull_request", FakePRTool())
+
+        provider = FakeProvider(plan=PLAN_JSON)
+        agent = CodingAgent(
+            provider=provider, workspace=self.root,
+            require_approval_for_writes=False, tool_registry=registry,
+        )
+        task = agent._create_task("add hello function", None, None)
+        task.repository = RepositoryContext(owner="local", name="demo")
+        task.repository_owner = "local"
+        task.repository_name = "demo"
+
+        ok = agent._phase_workspace(task, "voxline/task_abc")
+        self.assertTrue(ok)
+        # PR tool survived the workspace phase (it was NOT dropped)
+        self.assertIsNotNone(agent.tool_registry.get_tool("github_create_pull_request"))
+        self.assertIsNotNone(agent.tool_registry.get_tool("workspace_clone"))
+        # workspace now points to the cloned repo dir
+        self.assertEqual(agent.workspace, repo_dir)
+
+
 # =========================================================================
 # Main
 # =========================================================================

@@ -131,6 +131,31 @@ class AuditLog:
     def entries(self) -> List[AuditEntry]:
         return list(self._entries)
 
+    def log_event(
+        self,
+        event: str,
+        details: Optional[Dict[str, Any]] = None,
+        session_id: str = "",
+        success: bool = True,
+        error: Optional[str] = None,
+    ) -> AuditEntry:
+        """Log a non-tool event (e.g. an internal git command).
+
+        Flattens optional details into a generic audit entry so callers such as
+        RepositoryWorkspace can record framework operations without crashing.
+        """
+        details = details or {}
+        return self.record(
+            session_id=session_id,
+            tool_name=event,
+            operation=event,
+            decision=PermissionDecision.ALLOWED,
+            reason=str(details) if details else event,
+            success=success,
+            duration_ms=0.0,
+            error=error,
+        )
+
     def clear(self) -> None:
         self._entries.clear()
 
@@ -364,6 +389,14 @@ class CommandValidator:
         self.path_security = path_security
         self.max_output_bytes = max_output_bytes
         self.timeout_seconds = timeout_seconds
+
+    def set_path_security(self, path_security: PathSecurity) -> None:
+        """Update the workspace-boundary security object.
+
+        Used when the workspace root changes mid-workflow (e.g. after a
+        repository clone) so command validation enforces the new boundary.
+        """
+        self.path_security = path_security
 
     def parse_command(self, command: str) -> tuple[str, List[str]]:
         """Safely parse a command string into executable and arguments.

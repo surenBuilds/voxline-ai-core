@@ -35,3 +35,18 @@ start_voxline.bat
 # Reports (keep docs/ only)
 PHASE_1_*.md
 V0_4_PLAN.md
+
+# Runtime state (never commit)
+*.db
+memory/
+*.sqlite
+*.sqlite3
+
+# Runtime logs / outputs / model stubs
+out.txt
+output.log
+v0_3_*.log
+v0_3_*.txt
+VERIFICATION_REPORT_v0_3.txt
+*.pth
+.tmp/

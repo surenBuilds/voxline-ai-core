@@ -344,6 +344,26 @@ class ToolRegistry:
         """Get tool by name."""
         return self.tools.get(name)
 
+    def set_workspace_root(self, workspace_root: str) -> None:
+        """Re-root the filesystem security boundary to a new workspace root.
+
+        Updates the shared path security used by the file/command tools while
+        PRESERVING all previously registered tools (core, GitHub, Vercel,
+        workspace). This is required when a repository is cloned into the
+        workspace mid-workflow so subsequent phases keep their tools.
+
+        Core file/command tools are re-created bound to the new root.
+        No integration tools are dropped.
+        """
+        self.workspace_root = workspace_root
+        self._path_security = PathSecurity(workspace_root)
+        self._command_validator.set_path_security(self._path_security)
+        # Rebind default filesystem/command tools to the new security root.
+        self.register("read_file", FileReadTool(self.workspace_root, self._file_size_guard, self._path_security))
+        self.register("write_file", FileWriteTool(self.workspace_root, self._file_size_guard, self._path_security))
+        self.register("list_directory", DirectoryListTool(self.workspace_root, self._path_security))
+        self.register("execute_command", CommandExecutor(self._command_validator, self._audit))
+
     # ---- Three-phase API ------------------------------------------------
 
     def validate_request(self, name: str, **kwargs) -> ToolPermissionResult:

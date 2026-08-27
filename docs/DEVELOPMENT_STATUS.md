@@ -1,10 +1,12 @@
 # Voxline AI — Development Status
 
-## Current Version: v0.4
+## Current Version: v1.0.0
 
-**Maturity Level: Level 2 — Working Prototype**
+**Maturity Level: Level 2 — Working Prototype (v1.0 release)**
 
 Architecture is ahead of model intelligence. All components functional but model produces incoherent output.
+
+**v1.0.0 status:** Coding agent feature-complete for a v1 release after Phase 7 (Steps 1-14). All automated tests pass including real end-to-end validation against a local git repository (no hosted credentials or network required). See `docs/V1_RELEASE_REPORT.md`.
 
 ## Test Status
 
@@ -26,12 +28,13 @@ Architecture is ahead of model intelligence. All components functional but model
 | pytest (test_github_integration.py) | PASS | 40/40 |
 | pytest (test_vercel_integration.py) | PASS | 25/25 |
 | pytest (test_tool_registration.py) | PASS | 32/32 |
-| pytest (test_production_hardening.py) | PASS | 31/31 |
+| pytest (test_production_hardening.py) | PASS | 34/34 (includes Step 13 regressions) |
 | pytest (e2e_coding_workflow.py) | PASS | 10/10 |
 | pytest (smoke_real_integrations.py) | SKIP | 4/4 (gated behind VOXLINE_EXTERNAL_SMOKE=1) |
 | pytest (test_armenian_benchmark.py) | PASS | 51/51 (15 skipped: live model) |
+| pytest (test_real_e2e_validation.py) | PASS | 5/5 (gated behind VOXLINE_REAL_E2E=1) |
 | Smoke tests (baseline_smoke.py) | PASS | 14/14 |
-| Total | **PASS** | **669/669 (21 skipped)** |
+| Total (VOXLINE_REAL_E2E=1) | **PASS** | **677/677 (21 skipped)** |
 
 ## Component Status
 
@@ -63,7 +66,7 @@ Architecture is ahead of model intelligence. All components functional but model
 | **FileSizeGuard** | **Working** | File size enforcement for reads and writes (Phase 7 Step 7) |
 | **Tool Bootstrap** | **Working** | `build_tool_registry()` — conditional registration of core, GitHub, Vercel, workspace tools based on config/credentials. (Phase 7 Step 11) |
 | **Capability Discovery** | **Working** | `ToolRegistry.available_tools()` — categorized tool summaries safe for LLM context. (Phase 7 Step 11) |
-| **CodingAgent** | **Working** | Autonomous coding agent: plan → execute → validate → fix loop. Phase 11: repository context, 8-phase workflow (A-H), integration tool routing. Phase 12: CodingStatus, FailureType, operation_id, branch sanitization, deployment verification. (Phase 7 Steps 8+11+12) |
+| **CodingAgent** | **Working** | Autonomous coding agent: plan → execute → validate → fix loop. Phase 11: repository context, 8-phase workflow (A-H), integration tool routing. Phase 12: CodingStatus, FailureType, operation_id, branch sanitization, deployment verification. Phase 13: workspace re-rooting preserves integration tools, feature branch auto-creation, fixed repo path double-nesting, AuditLog.log_event(). (Phase 7 Steps 8+11+12+13) |
 | **GitHub Integration** | **Working** | Client, service, permission policy (READ/WRITE/DESTRUCTIVE), RepositoryWorkspace, tools. (Phase 7 Step 10) |
 | **Vercel Integration** | **Working** | Client, service, permission policy (PREVIEW/PRODUCTION), deployment tools. (Phase 7 Step 10) |
 | **CredentialProvider** | **Working** | Environment-based credential management with redaction. Tokens never exposed to LLM. (Phase 7 Step 10) |
@@ -109,6 +112,12 @@ Architecture is ahead of model intelligence. All components functional but model
 12. **`src/providers/qwen_provider.py`**: Fixed `apply_chat_template()` return type — extracts `.input_ids` from `BatchEncoding` (transformers 5.15.0 API change)
 13. **`src/providers/qwen_provider.py`**: Replaced deprecated `torch_dtype` parameter with `dtype` (transformers 5.15.0 rename)
 14. **`tests/test_providers.py`**: Changed `TestQwenProvider` to share single provider instance via `setUpClass` (memory constraint: 6GB RAM, 942MB model)
+
+### Phase 7 Step 13 (v1.0 release — real E2E defects)
+15. **`src/tools/tools.py`**: Added `ToolRegistry.set_workspace_root()` — re-roots the filesystem/command security boundary to a cloned repo WITHOUT dropping the already-registered GitHub/Vercel/workspace tools. Previously `_phase_workspace` replaced the registry with a fresh empty one, silently losing all integration tools so PR creation and deployment phases failed.
+16. **`src/assistant/coding.py`**: Added `workspace_root` — `_phase_commit_and_push` / `_phase_review` / `_phase_vercel` now construct `RepositoryWorkspace` from the original workspace ROOT instead of the already-nested repo dir, fixing `NotADirectoryError` (double nesting) in the GitHub workflow.
+17. **`src/assistant/coding.py`**: `_phase_workspace` now creates + checks out the feature branch after clone (previously all changes were made directly on the base branch and the feature-branch push failed with "refspec does not match any").
+18. **`src/tools/security.py`**: Added `AuditLog.log_event()` — `RepositoryWorkspace._run_git()`/`clone()` called this method which did not exist, crashing when an audit log was supplied. Now records generic framework events without raising.
 
 ## Architecture Changes
 
@@ -229,3 +238,5 @@ Architecture is ahead of model intelligence. All components functional but model
 | feat: Phase 7 Steps 9-10 | `2f9a3ca` | Integrations + GitHub + Vercel |
 | feat: Phase 7 Step 11 | `7e13232` | Tool registration + E2E workflow |
 | feat: Phase 7 Step 12 | TBD | Production hardening + security audit |
+| feat: Phase 7 Steps 13-14 | TBD | Real E2E validation + production readiness (v1.0) |
+| release: finalize coding agent v1.0.0 | TBD | v1.0.0 release commit |

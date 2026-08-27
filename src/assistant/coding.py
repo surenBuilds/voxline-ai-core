@@ -286,6 +286,8 @@ class CodingAgent:
     ):
         self.provider = provider
         self.workspace = str(Path(workspace).resolve())
+        self.workspace_root = self.workspace
+        self._feature_branch_created = False
         self.session_manager = session_manager or SessionManager()
         self.context_builder = context_builder or ContextBuilder(
             memory_store=memory_store, max_chars=max_context_chars,
@@ -560,11 +562,26 @@ class CodingAgent:
         repo_dir = result.get("repo_dir", "") if isinstance(result, dict) else ""
         if repo_dir:
             self.workspace = repo_dir
-            self.tool_registry = self.tool_registry.__class__(
-                workspace_root=repo_dir,
+            # Re-root the existing registry's security boundary to the cloned
+            # repo WITHOUT dropping the GitHub/Vercel/workspace tools. Creating
+            # a fresh empty registry here would leave later phases (PR, deploy)
+            # unable to find their tools.
+            self.tool_registry.set_workspace_root(repo_dir)
+            self._path_security = PathSecurity(repo_dir)
+
+            # Create and switch to the feature branch so all changes are made
+            # on an isolated branch — never on the base branch directly.
+            from src.tools.integration_tools import RepositoryWorkspace
+            ws = RepositoryWorkspace(
+                self.workspace_root,
+                task.repository_owner,
+                task.repository_name,
                 audit_log=self.tool_registry.audit_log,
             )
-            self._path_security = PathSecurity(repo_dir)
+            try:
+                self._feature_branch_created = (ws.create_branch(feature_branch))
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.warning("Failed to create feature branch: %s", exc)
 
         return True
 
@@ -622,7 +639,7 @@ class CodingAgent:
 
         from src.tools.integration_tools import RepositoryWorkspace
         ws = RepositoryWorkspace(
-            self.workspace,
+            self.workspace_root,
             task.repository_owner,
             task.repository_name,
         )
