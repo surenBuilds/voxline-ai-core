@@ -1,0 +1,12 @@
+models/
+checkpoints/
+
+memory/
+*.db
+*.sqlite
+*.sqlite3
+*.pth
+.tmp/
+.pytest_cache/
+__pycache__/
+*.pyc
