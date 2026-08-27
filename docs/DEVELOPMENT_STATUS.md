@@ -8,6 +8,8 @@ Architecture is ahead of model intelligence. All components functional but model
 
 **v1.0.0 status:** Coding agent feature-complete for a v1 release after Phase 7 (Steps 1-14). All automated tests pass including real end-to-end validation against a local git repository (no hosted credentials or network required). See `docs/V1_RELEASE_REPORT.md`.
 
+**Phase 15 (browser deployability):** Added a deployment-ready Vercel serverless gateway (`api/index.py`) + hosted `OpenAICompatProvider` (`src/providers/hosted.py`, provider id `openai`) so the coding agent is browser-testable via a hosted OpenAI-compatible API. Code is **ready but not deployed** (no Vercel auth/CLI on this machine) — see `docs/VERCEL_DEPLOYMENT.md` for the exact manual steps. Local development unchanged (default provider `qwen`).
+
 ## Test Status
 
 | Test Suite | Status | Count |
@@ -29,12 +31,14 @@ Architecture is ahead of model intelligence. All components functional but model
 | pytest (test_vercel_integration.py) | PASS | 25/25 |
 | pytest (test_tool_registration.py) | PASS | 32/32 |
 | pytest (test_production_hardening.py) | PASS | 34/34 (includes Step 13 regressions) |
+| pytest (test_hosted_provider.py) | PASS | 8/8 (OpenAI-compatible hosted provider, Phase 15) |
+| pytest (test_vercel_gateway.py) | PASS | 11/11 (Vercel ASGI gateway, Phase 15) |
 | pytest (e2e_coding_workflow.py) | PASS | 10/10 |
 | pytest (smoke_real_integrations.py) | SKIP | 4/4 (gated behind VOXLINE_EXTERNAL_SMOKE=1) |
 | pytest (test_armenian_benchmark.py) | PASS | 51/51 (15 skipped: live model) |
 | pytest (test_real_e2e_validation.py) | PASS | 5/5 (gated behind VOXLINE_REAL_E2E=1) |
 | Smoke tests (baseline_smoke.py) | PASS | 14/14 |
-| Total (VOXLINE_REAL_E2E=1) | **PASS** | **677/677 (21 skipped)** |
+| Total (VOXLINE_REAL_E2E=1) | **PASS** | **696/696 (21 skipped)** |
 
 ## Component Status
 
@@ -55,7 +59,8 @@ Architecture is ahead of model intelligence. All components functional but model
 | **AIProvider ABC** | **Working** | chat, stream, health_check, generate, get_model_info |
 | **LocalVoxlineProvider** | **Working** | Native Voxline, streaming, ModelInfo |
 | **QwenProvider** | **Working** | HuggingFace Qwen2.5 local, chat template (Phase 4 fixed: BatchEncoding + dtype) |
-| **ProviderFactory** | **Working** | Lazy registration, configurable creation (Phase 6: default=qwen) |
+| **OpenAICompatProvider** | **Working** | OpenAI-compatible hosted provider (httpx, provider id `openai`), never logs/exposes key, safe missing-key errors (Phase 15) |
+| **ProviderFactory** | **Working** | Lazy registration, configurable creation (Phase 6: default=qwen; Phase 15: added `openai`) |
 | VoxlineConfig | Working | Environment-driven, defaults functional (Phase 6: default provider=qwen) |
 | ModelConfig | Working | Checkpoint compatibility, from_dict robust |
 | Error hierarchy | Working | Centralized in src/errors.py |
@@ -74,6 +79,7 @@ Architecture is ahead of model intelligence. All components functional but model
 | **GitHub Workflow** | **Working** | Commit/push separate from PR creation, branch sanitization, feature branch auto-created. (Phase 7 Step 12) |
 | **Deployment Verification** | **Working** | `_verify_deployment()` polls Vercel API with timeout. (Phase 7 Step 12) |
 | **FastAPI Server** | **Working** | Provider-configurable via --provider flag (Phase 6: default=qwen) |
+| **Vercel Gateway** | **Deployment-ready** | `api/index.py` ASGI serverless gateway (health/tools/chat/business/coding + static UI), lean deps, no torch; not yet deployed (Phase 15) |
 | CLI chat.py | Working | Interactive chat with memory |
 | **Evaluation Schemas** | **Working** | BenchmarkCase, CaseResult, EvalReport, HumanEvalScores, EvaluationStatus |
 | **Evaluation Metrics** | **Working** | 20+ metric functions: exact, contains, smart_contains, task-specific (Phase 6) |

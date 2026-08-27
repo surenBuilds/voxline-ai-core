@@ -28,11 +28,18 @@ class VoxlineConfig:
     # Default values (public, no secrets)
     DEFAULTS = {
         # AI Provider
-        "AI_PROVIDER": "qwen",  # qwen|native — default deployment provider
+        "AI_PROVIDER": "qwen",  # qwen|native|openai — default deployment provider
         "AI_MODEL_PATH": "models/Qwen2.5-0.5B-Instruct",
         "AI_TOKENIZER_PATH": "checkpoints/voxline_tokenizer_v0_3.json",
         "AI_DEVICE": "auto",  # auto|cpu|cuda|mps
         "AI_DTYPE": "float32",  # float32|float16|bfloat16
+
+        # Hosted (OpenAI-compatible) provider — used on Vercel/serverless.
+        # AI_API_KEY is a secret: server-side only, never committed/browser/logged.
+        "AI_API_KEY": "",
+        "AI_BASE_URL": "https://api.openai.com/v1",
+        "AI_MODEL": "gpt-3.5-turbo",
+
         
         # Workspace
         "WORKSPACE_ROOT": ".",
@@ -97,6 +104,7 @@ class VoxlineConfig:
     # These keys should never be logged
     SECRET_KEYS = {
         "OPENAI_API_KEY",
+        "AI_API_KEY",
         "GEMINI_API_KEY",
         "ANTHROPIC_API_KEY",
         "WEB_SEARCH_API_KEY",
@@ -190,6 +198,18 @@ class VoxlineConfig:
     @property
     def ai_tokenizer_path(self) -> str:
         return self.get_required("AI_TOKENIZER_PATH")
+
+    @property
+    def ai_api_key(self) -> str:
+        return self.get("AI_API_KEY", "")
+
+    @property
+    def ai_base_url(self) -> str:
+        return self.get("AI_BASE_URL", "https://api.openai.com/v1")
+
+    @property
+    def ai_model(self) -> str:
+        return self.get("AI_MODEL", "gpt-3.5-turbo")
     
     @property
     def ai_device(self) -> str:

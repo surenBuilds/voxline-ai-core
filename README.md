@@ -20,6 +20,16 @@ python serve_v04.py --provider qwen --port 8000
 python chat.py
 ```
 
+## Browser Deployment (Vercel)
+
+A deployment-ready serverless gateway (`api/index.py`) makes the coding agent
+browser-testable via a hosted OpenAI-compatible provider. It reuses the existing
+`ChatAssistant` / `BusinessAssistant` / `CodingAgent` / `ToolRegistry` / security
+stack (no torch on the server), with the hosted provider key kept **server-side
+only**. See [docs/VERCEL_DEPLOYMENT.md](docs/VERCEL_DEPLOYMENT.md) for the manual
+deploy steps, env-var table, and caveats. Local development is unchanged
+(default provider `qwen`).
+
 ## What This Repo Does
 
 - **Coding agent** (`src/assistant/coding.py`) — the flagship feature. An
@@ -59,6 +69,7 @@ bare remote and clone, uses a deterministic scripted provider, and then cleans u
 | [docs/GITHUB_INTEGRATION.md](docs/GITHUB_INTEGRATION.md), [docs/VERCEL_INTEGRATION.md](docs/VERCEL_INTEGRATION.md) | Integrations |
 | [docs/DEVELOPMENT_STATUS.md](docs/DEVELOPMENT_STATUS.md) | Live status, component table, known limitations |
 | [docs/V1_RELEASE_REPORT.md](docs/V1_RELEASE_REPORT.md) | v1.0.0 release report (real E2E + fixes) |
+| [docs/VERCEL_DEPLOYMENT.md](docs/VERCEL_DEPLOYMENT.md) | Phase 15: browser deployment (Vercel serverless gateway) |
 
 ## Security Model
 

@@ -26,6 +26,7 @@ class ProviderFactory:
     Supported provider IDs:
     - "qwen": QwenProvider (requires model_path) — default
     - "native": NativeVoxlineProvider (requires model + tokenizer)
+    - "openai": OpenAICompatProvider (hosted, OpenAI-compatible API) — serverless/Vercel
     """
 
     _providers: Dict[str, Type[AIProvider]] = {}
@@ -150,5 +151,7 @@ def _ensure_builtin_providers():
     _builtin_registered = True
     from src.providers.local_voxline import LocalVoxlineProvider
     from src.providers.qwen_provider import QwenProvider
+    from src.providers.hosted import OpenAICompatProvider
     ProviderFactory.register_provider("native", LocalVoxlineProvider)
     ProviderFactory.register_provider("qwen", QwenProvider)
+    ProviderFactory.register_provider("openai", OpenAICompatProvider)

@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 120,
+      "runtime": "python3.12"
+    }
+  },
+  "installCommand": "pip install --disable-pip-version-check -r requirements-serverless.txt",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api/index.py" }
+  ]
+}

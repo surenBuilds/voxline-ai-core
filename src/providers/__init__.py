@@ -3,6 +3,7 @@
 from .base import AIProvider, GenerationConfig, ProviderHealth, ProviderStatus, ModelInfo
 from .local_voxline import LocalVoxlineProvider
 from .qwen_provider import QwenProvider
+from .hosted import OpenAICompatProvider
 from .factory import ProviderFactory
 
 __all__ = [
@@ -13,5 +14,6 @@ __all__ = [
     "ProviderStatus",
     "LocalVoxlineProvider",
     "QwenProvider",
+    "OpenAICompatProvider",
     "ProviderFactory",
 ]
