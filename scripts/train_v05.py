@@ -355,26 +355,39 @@ def cmd_overfit(args):
 
 
 def cmd_train(args):
-    model_cfg, training_cfg, tok, assist_id, model, train_ds, val_ds = load_all()
+    model_cfg, training_cfg, tok, assist_id, _, train_ds, val_ds = load_all()
     device = setup_device()
-    model.to(device)
     batch_size = training_cfg.get("batch_size", 4)
     train_loader, val_loader = loaders(train_ds, val_ds, batch_size)
+
+    model = build_model(tok, model_cfg, model_cfg["max_seq_len"])
     trainer = make_trainer(model, training_cfg, tok, assist_id, model_cfg)
-    if args.max_steps:
-        trainer.config.max_steps = args.max_steps
-        # scheduler is built off max_steps; rebuild nothing, step count governs
-    print("Starting full training (steps=%d)..." % trainer.config.max_steps)
+    model.to(device)
+
+    # Resume: continue from the latest checkpoint's global_step (never step 0).
+    latest = latest_step_ckpt()
+    if latest is not None:
+        restore_checkpoint(model, trainer, latest, device)
+        print(f"Resumed from {latest.name} at "
+              f"global_step={trainer.global_step}")
+
+    # --max-steps / config is the TOTAL target global step for this invocation,
+    # not an increment. A run continues from global_step toward this target.
+    target = args.max_steps if args.max_steps else trainer.config.max_steps
+    if trainer.global_step >= target:
+        print(f"Already at global_step={trainer.global_step} >= target={target}; "
+              "nothing to do.")
+        return
+    print(f"Training from global_step={trainer.global_step} to target={target}...")
     t0 = time.time()
-    step = 0
     running = 0.0
     best = float("inf")
     patience = trainer.config.patience
     no_improve = 0
-    while step < trainer.config.max_steps:
+    while trainer.global_step < target:
         model.train()
         for inp, tgt in train_loader:
-            if step >= trainer.config.max_steps:
+            if trainer.global_step >= target:
                 break
             inp, tgt = inp.to(device), tgt.to(device)
             logits = model(inp)
@@ -386,11 +399,12 @@ def cmd_train(args):
             trainer.scheduler.step()
             trainer.optimizer.zero_grad()
             running += loss.item()
-            step += 1
-            if step % trainer.config.eval_steps == 0:
+            trainer.global_step += 1
+            if trainer.global_step % trainer.config.eval_steps == 0:
                 vloss = evaluate(trainer, model, val_loader, device)
                 avg = running / trainer.config.eval_steps
-                print(f"step {step}: train_loss={avg:.4f} val_loss={vloss:.4f} "
+                print(f"step {trainer.global_step}: train_loss={avg:.4f} "
+                      f"val_loss={vloss:.4f} "
                       f"lr={trainer.scheduler.get_last_lr()[0]:.2e} "
                       f"({(time.time()-t0):.0f}s)")
                 running = 0.0
@@ -403,10 +417,16 @@ def cmd_train(args):
                     if no_improve >= patience:
                         print("Early stopping.")
                         save_ckpt(model, trainer, f"{CKPT_DIR / 'best_model.pt'}")
+                        save_ckpt(model, trainer,
+                                  f"{CKPT_DIR / f'checkpoint_step_{trainer.global_step}.pt'}")
                         return
-            if step % trainer.config.save_steps == 0:
-                save_ckpt(model, trainer, f"{CKPT_DIR / f'checkpoint_step_{step}.pt'}")
+            if (trainer.global_step % trainer.config.save_steps == 0
+                    or trainer.global_step == target):
+                save_ckpt(model, trainer,
+                          f"{CKPT_DIR / f'checkpoint_step_{trainer.global_step}.pt'}")
     save_ckpt(model, trainer, f"{CKPT_DIR / 'best_model.pt'}")
+    save_ckpt(model, trainer,
+              f"{CKPT_DIR / f'checkpoint_step_{trainer.global_step}.pt'}")
     print(f"Training complete in {(time.time()-t0)/60:.1f} min")
 
 
@@ -428,12 +448,50 @@ def save_ckpt(model, trainer, path):
     CKPT_DIR.mkdir(parents=True, exist_ok=True)
     torch.save({
         "model_state_dict": model.state_dict(),
+        "optimizer_state_dict": trainer.optimizer.state_dict(),
+        "scheduler_state_dict": trainer.scheduler.state_dict(),
         "config": dict(trainer.config.__dict__ if hasattr(trainer.config, "__dict__")
                        else trainer.config),
         "global_step": trainer.global_step,
         "training_history": trainer.training_history,
     }, path)
     print("Saved:", path)
+
+
+def latest_step_ckpt():
+    """Return the path to the newest checkpoint_step_*.pt in CKPT_DIR, or None."""
+    if not CKPT_DIR.exists():
+        return None
+    ckpts = []
+    for p in CKPT_DIR.glob("checkpoint_step_*.pt"):
+        try:
+            n = int(p.stem.split("_")[-1])
+            ckpts.append((n, p))
+        except ValueError:
+            continue
+    if not ckpts:
+        return None
+    return max(ckpts, key=lambda x: x[0])[1]
+
+
+def restore_checkpoint(model, trainer, path, device):
+    """Load a full resume checkpoint into an existing model + trainer, restoring
+    optimizer, scheduler, global_step and training history."""
+    ck = torch.load(str(path), map_location=device, weights_only=False)
+    model.load_state_dict(ck["model_state_dict"])
+    trainer.optimizer.load_state_dict(ck["optimizer_state_dict"])
+    trainer.scheduler.load_state_dict(ck["scheduler_state_dict"])
+    trainer.global_step = ck.get("global_step", 0)
+    trainer.training_history = ck.get("training_history", [])
+    return ck
+
+
+def ckpt_contains_required_state(path):
+    """Return True if a checkpoint file has full resume state (used in tests)."""
+    saved = torch.load(path, map_location="cpu", weights_only=False)
+    return all(k in saved for k in (
+        "model_state_dict", "optimizer_state_dict", "scheduler_state_dict",
+        "global_step", "training_history", "config"))
 
 
 def main():

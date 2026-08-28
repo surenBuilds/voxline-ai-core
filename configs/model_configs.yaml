@@ -41,7 +41,7 @@ v0_5_planner:
     gradient_accumulation_steps: 2
     max_grad_norm: 1.0
     eval_steps: 200
-    save_steps: 500
+    save_steps: 250
     num_epochs: 40
     patience: 10
     bpe_merges: 4600
