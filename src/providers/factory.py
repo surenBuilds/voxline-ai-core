@@ -144,14 +144,28 @@ _builtin_registered = False
 
 
 def _ensure_builtin_providers():
-    """Register built-in providers on first factory use."""
+    """Register built-in providers on first factory use.
+
+    The hosted ``openai`` provider is registered unconditionally because it only
+    needs httpx (no torch/transformers). The heavy local providers (``native``,
+    ``qwen``) require torch/transformers, so they are registered only when those
+    dependencies are importable. In the lean serverless bundle (torch absent)
+    they are skipped instead of crashing the factory, and can still be created
+    locally where torch is installed.
+    """
     global _builtin_registered
     if _builtin_registered:
         return
     _builtin_registered = True
-    from src.providers.local_voxline import LocalVoxlineProvider
-    from src.providers.qwen_provider import QwenProvider
     from src.providers.hosted import OpenAICompatProvider
-    ProviderFactory.register_provider("native", LocalVoxlineProvider)
-    ProviderFactory.register_provider("qwen", QwenProvider)
     ProviderFactory.register_provider("openai", OpenAICompatProvider)
+    try:
+        from src.providers.local_voxline import LocalVoxlineProvider
+        ProviderFactory.register_provider("native", LocalVoxlineProvider)
+    except ImportError:
+        logger.debug("native provider unavailable (torch/transformers not installed)")
+    try:
+        from src.providers.qwen_provider import QwenProvider
+        ProviderFactory.register_provider("qwen", QwenProvider)
+    except ImportError:
+        logger.debug("qwen provider unavailable (torch/transformers not installed)")
