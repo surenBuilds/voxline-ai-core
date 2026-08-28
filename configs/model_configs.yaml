@@ -23,6 +23,31 @@ v0_4_small:
 
   device: auto
 
+v0_5_planner:
+  model:
+    vocab_size: 5000
+    d_model: 256
+    num_layers: 6
+    num_heads: 8
+    d_ff: 1024
+    max_seq_len: 1024
+    dropout: 0.1
+
+  training:
+    batch_size: 4
+    learning_rate: 3e-4
+    warmup_steps: 100
+    max_steps: 3000
+    gradient_accumulation_steps: 2
+    max_grad_norm: 1.0
+    eval_steps: 200
+    save_steps: 500
+    num_epochs: 40
+    patience: 10
+    bpe_merges: 4600
+
+  device: cpu
+
 small:
   model:
     vocab_size: 50000

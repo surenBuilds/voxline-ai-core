@@ -146,6 +146,7 @@ class Trainer:
         model: nn.Module,
         config: TrainingConfig,
         tokenizer=None,
+        assist_token_id: Optional[int] = None,
     ):
         """
         Initialize trainer.
@@ -154,11 +155,17 @@ class Trainer:
             model: Model to train
             config: Training configuration
             tokenizer: Tokenizer instance
+            assist_token_id: Token ID that marks the start of the assistant
+                response. When provided, language-model loss is computed ONLY on
+                the assistant-response tokens (prompt tokens are masked with
+                ignore_index=-100). When None (default), the standard full-sequence
+                language-modeling loss is used (backward compatible with v0.4).
         """
         self.model = model
         self.config = config
         self.tokenizer = tokenizer
         self.device = torch.device(config.device)
+        self.assist_token_id = assist_token_id
 
         # Move model to device
         self.model = self.model.to(self.device)
@@ -186,6 +193,66 @@ class Trainer:
         self.best_val_loss = float("inf")
         self.training_history = []
 
+    def _compute_loss(
+        self, logits: torch.Tensor, input_ids: torch.Tensor, target_ids: torch.Tensor
+    ) -> torch.Tensor:
+        """
+        Compute masked language-model loss.
+
+        When ``assist_token_id`` is None (default / v0.4), computes the standard
+        full-sequence CrossEntropyLoss.
+
+        When ``assist_token_id`` is set, the assistant-instruction tail is
+        isolated and only those tokens contribute to the loss.
+
+        Mask construction:
+        - The tokenizer reserves a special ``[ASSIST_START]`` token placed at the
+          start of every assistant response in the training corpus:
+              ``System: ...\\nUser: <prompt>\\nAssistant: [ASSIST_START] {json}``
+        - ``input_ids[b]`` is the input row; the first occurrence of
+          ``assist_token_id`` marks the boundary ``idx_b``.
+        - A weight mask ``W[b][j] = 1`` for every input position ``j >= idx_b``
+          (the response tail) and ``0`` for ``j < idx_b`` (the instruction
+          prompt). Because target position ``j`` predicts ``example[j+1]``, this
+          makes the model learn to predict the JSON response tokens while
+          ignoring the prompt (equivalent to setting prompt targets to
+          ``ignore_index=-100``).
+        - Padding positions already carry ``-100`` targets and are ignored by the
+          loss regardless of the weight mask.
+        """
+        seed_target = target_ids.view(-1)
+        if self.assist_token_id is None:
+            return self.criterion(logits.view(-1, logits.size(-1)), seed_target)
+
+        per_token = torch.nn.functional.cross_entropy(
+            logits.view(-1, logits.size(-1)),
+            seed_target,
+            ignore_index=-100,
+            reduction="none",
+        ).view(logits.size(0), logits.size(1))
+
+        mask = torch.zeros_like(input_ids, dtype=torch.float, device=input_ids.device)
+        eq = input_ids == self.assist_token_id
+        # find first assist marker per row; fall back to full row if absent
+        first = eq.int().argmax(dim=-1)
+        has = eq.any(dim=-1)
+        for b in range(input_ids.size(0)):
+            start = int(first[b].item()) if has[b] else 0
+            if has[b]:
+                mask[b, start:] = 1.0
+
+        # Exclude padding/garbage positions (target == -100) so that the
+        # denominator only counts real response tokens; otherwise padded
+        # positions in the tail dilute the loss with zero-loss terms.
+        valid = (target_ids != -100).float()
+        mask = mask * valid
+
+        weighted = (per_token * mask).sum()
+        denom = mask.sum()
+        if denom == 0:
+            return per_token.sum() * 0.0
+        return weighted / denom
+
     def train_epoch(self, train_loader: DataLoader) -> float:
         """
         Train one epoch.
@@ -207,8 +274,8 @@ class Trainer:
             # Forward pass
             logits = self.model(input_ids)
 
-            # Compute loss
-            loss = self.criterion(logits.view(-1, logits.size(-1)), target_ids.view(-1))
+            # Compute loss (masked to assistant tail when assist_token_id set)
+            loss = self._compute_loss(logits, input_ids, target_ids)
 
             # Backward pass
             loss.backward()
@@ -249,9 +316,7 @@ class Trainer:
                 target_ids = target_ids.to(self.device)
 
                 logits = self.model(input_ids)
-                loss = self.criterion(
-                    logits.view(-1, logits.size(-1)), target_ids.view(-1)
-                )
+                loss = self._compute_loss(logits, input_ids, target_ids)
 
                 total_loss += loss.item()
                 num_batches += 1
